@@ -1,0 +1,156 @@
+{
+  "name": "lm-bridge",
+  "displayName": "LM Bridge — Local AI Server",
+  "description": "Expose internal IDE language models (Gemini, Claude, etc.) as a local OpenAI-compatible HTTP API server. Like Ollama, but powered by the models already inside your IDE.",
+  "version": "0.1.0",
+  "publisher": "lm-bridge",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "enabledApiProposals": [
+    "languageModelProxy"
+  ],
+
+  "categories": [
+    "AI",
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "llm",
+    "openai",
+    "ollama",
+    "gemini",
+    "language-model",
+    "api-server",
+    "local-server"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "lmBridge.startServer",
+        "title": "LM Bridge: Start Server",
+        "icon": "$(play)"
+      },
+      {
+        "command": "lmBridge.stopServer",
+        "title": "LM Bridge: Stop Server",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "lmBridge.restartServer",
+        "title": "LM Bridge: Restart Server",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "lmBridge.openControlPanel",
+        "title": "LM Bridge: Open Control Panel",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "lmBridge.generateToken",
+        "title": "LM Bridge: Generate API Token"
+      },
+      {
+        "command": "lmBridge.copyEndpoint",
+        "title": "LM Bridge: Copy Endpoint URL"
+      }
+    ],
+    "configuration": {
+      "title": "LM Bridge",
+      "properties": {
+        "lmBridge.port": {
+          "type": "number",
+          "default": 11434,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Port number for the local HTTP server."
+        },
+        "lmBridge.host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "enum": [
+            "127.0.0.1",
+            "0.0.0.0"
+          ],
+          "enumDescriptions": [
+            "Localhost only — most secure, only this machine can access the server.",
+            "All interfaces — allows LAN access (use with caution)."
+          ],
+          "description": "Network interface to bind the server to."
+        },
+        "lmBridge.autoStart": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start the server when the IDE opens."
+        },
+        "lmBridge.authEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require a Bearer API token for all requests."
+        },
+        "lmBridge.defaultModel": {
+          "type": "string",
+          "default": "",
+          "description": "Default model family to use when the request doesn't specify one. Leave empty to require explicit model selection."
+        },
+        "lmBridge.corsOrigins": {
+          "type": "string",
+          "default": "*",
+          "description": "Allowed CORS origins (comma-separated). Use '*' to allow all."
+        },
+        "lmBridge.logLevel": {
+          "type": "string",
+          "default": "info",
+          "enum": [
+            "none",
+            "error",
+            "info",
+            "debug"
+          ],
+          "enumDescriptions": [
+            "No logging",
+            "Errors only",
+            "Errors and request summaries",
+            "Verbose logging including request/response bodies"
+          ],
+          "description": "Log verbosity level."
+        },
+        "lmBridge.maxConcurrentRequests": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum number of simultaneous inference requests."
+        },
+        "lmBridge.requestTimeout": {
+          "type": "number",
+          "default": 120000,
+          "minimum": 5000,
+          "maximum": 600000,
+          "description": "Request timeout in milliseconds."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.93.0",
+    "typescript": "^5.4.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0"
+  }
+}
