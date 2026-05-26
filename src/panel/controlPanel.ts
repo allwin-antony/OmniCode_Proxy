@@ -170,9 +170,18 @@ export class ControlPanel {
                 await this.tokenManager.revokeToken(msg.tokenId);
                 break;
 
-            case 'revokeAllTokens':
-                await this.tokenManager.revokeAll();
+            case 'revokeAllTokens': {
+                const choice = await vscode.window.showWarningMessage(
+                    'Are you sure you want to revoke all API tokens? This cannot be undone and will disconnect any active clients.',
+                    { modal: true },
+                    'Revoke All'
+                );
+                if (choice === 'Revoke All') {
+                    await this.tokenManager.revokeAll();
+                    vscode.window.showInformationMessage('All API tokens have been successfully revoked.');
+                }
                 break;
+            }
 
             case 'copyEndpoint': {
                 const url = this.server.getEndpointUrl();
@@ -904,7 +913,7 @@ export class ControlPanel {
                 </div>
 
                 <div id="tab-curl" class="tab-content active">
-                    <div class="code-block" id="curl-example">curl http://localhost:11434/v1/chat/completions \\
+                    <div class="code-block" id="curl-example">curl <span class="url-base">http://localhost:11434/v1</span>/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -d '{
@@ -918,7 +927,7 @@ export class ControlPanel {
                     <div class="code-block">from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:11434/v1",
+    base_url="<span class="url-base">http://localhost:11434/v1</span>",
     api_key="YOUR_TOKEN"
 )
 
@@ -934,7 +943,7 @@ print(response.choices[0].message.content)</div>
                     <div class="code-block">import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "http://localhost:11434/v1",
+  baseURL: "<span class="url-base">http://localhost:11434/v1</span>",
   apiKey: "YOUR_TOKEN",
 });
 
@@ -947,7 +956,7 @@ console.log(response.choices[0].message.content);</div>
                 </div>
 
                 <div id="tab-ollama" class="tab-content">
-                    <div class="code-block">curl http://localhost:11434/api/chat \\
+                    <div class="code-block">curl <span class="url-ollama-base">http://localhost:11434</span>/api/chat \\
   -d '{
     "model": "gemini-2.5-flash",
     "messages": [{"role": "user", "content": "Hello!"}],
@@ -955,7 +964,7 @@ console.log(response.choices[0].message.content);</div>
   }'
 
 # List models (Ollama format)
-curl http://localhost:11434/api/tags</div>
+curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
                     <button class="btn-ghost" style="margin-top:8px" onclick="copyCurl('ollama')">📋 Copy command</button>
                 </div>
             </div>
@@ -1163,8 +1172,23 @@ curl http://localhost:11434/api/tags</div>
         }
 
         function updateEndpoint(server) {
-            if (server && server.endpoint) {
-                document.getElementById('endpoint-url').textContent = server.endpoint;
+            if (server) {
+                let baseUrl = 'http://localhost:11434/v1';
+                if (server.endpoint) {
+                    baseUrl = server.endpoint;
+                    document.getElementById('endpoint-url').textContent = server.endpoint;
+                } else if (server.port) {
+                    const host = server.host === '0.0.0.0' ? 'localhost' : (server.host || 'localhost');
+                    baseUrl = 'http://' + host + ':' + server.port + '/v1';
+                }
+                const ollamaBaseUrl = baseUrl.replace('/v1', '');
+
+                document.querySelectorAll('.url-base').forEach(el => {
+                    el.textContent = baseUrl;
+                });
+                document.querySelectorAll('.url-ollama-base').forEach(el => {
+                    el.textContent = ollamaBaseUrl;
+                });
             }
         }
 
@@ -1189,9 +1213,7 @@ curl http://localhost:11434/api/tags</div>
         }
 
         function revokeAll() {
-            if (confirm('Revoke all API tokens? This cannot be undone.')) {
-                sendMsg('revokeAllTokens');
-            }
+            sendMsg('revokeAllTokens');
         }
 
         function saveConfig() {

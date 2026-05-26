@@ -56,7 +56,6 @@ export class ModelMapper {
     async initialize(): Promise<void> {
         this.logDiag('[Info] Initializing model discovery...');
         await this.refresh();
-        this.diagnosticsChannel.show(true); // Proactively show diagnostics on startup to help troubleshoot
 
         // Progressive startup retries to capture slow-loading model providers (like SecureCoder)
         const retries = [2000, 5000, 10000, 18000];
@@ -101,61 +100,6 @@ export class ModelMapper {
                     this.logDiag(`[Error] selectChatModels({}) failed: ${err?.message || err}`);
                 }
             }
-
-            // Introspect vscode namespace for any hidden or custom model APIs
-            this.logDiag('[Info] Scanning vscode namespace for other AI/chat/model APIs...');
-            try {
-                const keys = Object.keys(vscode);
-                const relevantKeys = keys.filter(k => {
-                    const kl = k.toLowerCase();
-                    return kl.includes('lm') || kl.includes('chat') || kl.includes('ai') || kl.includes('model') || kl.includes('gemini');
-                });
-                this.logDiag(`[Introspect] Found relevant keys in vscode namespace: ${JSON.stringify(relevantKeys)}`);
-                
-                // If there's an active chat or ai namespace, let's log its properties
-                for (const key of relevantKeys) {
-                    const ns = (vscode as any)[key];
-                    if (ns && typeof ns === 'object') {
-                        const subkeys = Object.keys(ns);
-                        this.logDiag(`[Introspect] vscode.${key} has properties: ${JSON.stringify(subkeys)}`);
-                    }
-                }
-
-                // Check out the custom model proxy functions on vscode.lm
-                const lm: any = vscode.lm;
-                if (lm) {
-                    this.logDiag(`[Introspect] typeof lm.isModelProxyAvailable: ${typeof lm.isModelProxyAvailable}`);
-                    this.logDiag(`[Introspect] typeof lm.getModelProxy: ${typeof lm.getModelProxy}`);
-
-                    if (typeof lm.isModelProxyAvailable === 'function') {
-                        const available = lm.isModelProxyAvailable();
-                        this.logDiag(`[Introspect] lm.isModelProxyAvailable() returned: ${available}`);
-                    } else if (typeof lm.isModelProxyAvailable === 'boolean') {
-                        this.logDiag(`[Introspect] lm.isModelProxyAvailable value: ${lm.isModelProxyAvailable}`);
-                    }
-
-                    if (typeof lm.getModelProxy === 'function') {
-                        try {
-                            const proxy = await lm.getModelProxy();
-                            this.logDiag(`[Introspect] lm.getModelProxy() returned typeof: ${typeof proxy}`);
-                            if (proxy && typeof proxy === 'object') {
-                                this.logDiag(`[Introspect] lm.getModelProxy() keys: ${JSON.stringify(Object.keys(proxy))}`);
-                                // If it has functions, print their names and types
-                                for (const pk of Object.keys(proxy)) {
-                                    this.logDiag(`[Introspect] proxy.${pk} typeof: ${typeof proxy[pk]}`);
-                                }
-                            }
-                        } catch (proxyErr: any) {
-                            this.logDiag(`[Introspect Error] lm.getModelProxy() rejected: ${proxyErr?.message || proxyErr}`);
-                        }
-                    }
-
-                }
-            } catch (e: any) {
-                this.logDiag(`[Introspect Error] Failed to scan namespace: ${e.message}`);
-            }
-
-
 
             this.models.clear();
 

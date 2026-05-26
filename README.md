@@ -1,56 +1,58 @@
-# LM Bridge — Local AI Server Extension
+# OmniCode Proxy — Local AI Server Extension
 
 > **Expose your IDE's internal language models as a local OpenAI-compatible HTTP API.**  
-> Like Ollama, but powered by the AI models already inside your Antigravity / VS Code IDE.
+> Like Ollama, but powered by the high-quality AI models already active and authenticated inside your IDE.
 
-## ✨ Features
+---
 
-- 🔌 **OpenAI-compatible API** — `/v1/chat/completions`, `/v1/models`
-- 🦙 **Ollama-compatible API** — `/api/chat`, `/api/tags`
-- 🎛️ **Control Panel** — Beautiful webview dashboard for managing everything
-- 🔑 **API Token Security** — Generate, revoke, and manage Bearer tokens
-- 📡 **Status Bar Widget** — Live server status, port, uptime at a glance
-- 📊 **Request Logging** — Real-time log stream in the Control Panel + Output Channel
-- ⚙️ **Configurable** — Port, host, CORS, auth, concurrency, timeout — all customizable
-- 🔄 **Streaming** — Full SSE streaming support for real-time responses
-- 🤖 **Auto-discovery** — Dynamically discovers all available IDE language models
+## ✨ Key Features
+
+- 🔌 **OpenAI-Compatible Endpoints** — Standard `/v1/chat/completions` and `/v1/models` APIs out of the box.
+- 🦙 **Ollama-Compatible Endpoints** — Drop-in `/api/chat` and `/api/tags` support for immediate CLI integration.
+- 🎛️ **Webview Control Panel** — Premium dashboard interface to monitor uptime, server logs, request statistics, and developer configurations.
+- 🔑 **Secure Token Authentication** — Native, encrypted bearer token management utilizing the IDE's secure storage (`SecretStorage`).
+- 📡 **Status Bar Widget** — Real-time server status, bind host, port, and live request counting.
+- 📊 **Real-time Logging** — Output log channel stream in the control panel + dedicated output console channel for easy API diagnostics.
+- 🔄 **SSE Streaming Support** — Full Server-Sent Events (SSE) support for responsive, token-by-token text generation.
+- 🤖 **Auto-Discovery** — Automatic detection and indexing of all available internal chat models.
+- 🧱 **Graceful Sandbox Fallback** — Built-in sandbox mode that lets you test integrations seamlessly even without registered model providers.
+
+---
 
 ## 🚀 Quick Start
 
-### 1. Install & Activate
-- Open the Extension in your Antigravity / VS Code IDE
-- The extension activates automatically
+### 1. Install & Launch
+- Install the **OmniCode Proxy** extension inside your IDE.
+- Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for **LM Bridge: Open Control Panel**.
 
-### 2. Start the Server
-- Open Command Palette (`Ctrl+Shift+P`)
-- Run: **LM Bridge: Start Server**
-- Or click the status bar item → Control Panel → Start
+### 2. Configure & Start Server
+- Adjust your desired binding port (default: `11434`) and host interface.
+- Click **Start Server** or run **LM Bridge: Start Server** from the Command Palette.
 
-### 3. Generate an API Token
-- Run: **LM Bridge: Open Control Panel**
-- Click **+ Generate Token** in the API Tokens section
-- Copy the token for use in your scripts
+### 3. Generate secure API Tokens
+- Click **+ Generate Token** in the API Tokens section.
+- Copy your generated token (you won't be able to see the full value again for security reasons!).
 
-### 4. Make Requests
+### 4. Connect your scripts
 
-**curl:**
+#### 🔹 curl
 ```bash
 curl http://localhost:11434/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer sk-lmb-...YOUR_TOKEN..." \
   -d '{
     "model": "gemini-2.5-flash",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
 
-**Python (OpenAI SDK):**
+#### 🔹 Python (OpenAI SDK)
 ```python
 from openai import OpenAI
 
 client = OpenAI(
     base_url="http://localhost:11434/v1",
-    api_key="YOUR_TOKEN"
+    api_key="sk-lmb-...YOUR_TOKEN..."
 )
 
 response = client.chat.completions.create(
@@ -60,13 +62,13 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-**Node.js:**
+#### 🔹 Node.js (OpenAI SDK)
 ```javascript
 import OpenAI from "openai";
 
 const client = new OpenAI({
   baseURL: "http://localhost:11434/v1",
-  apiKey: "YOUR_TOKEN",
+  apiKey: "sk-lmb-...YOUR_TOKEN...",
 });
 
 const response = await client.chat.completions.create({
@@ -76,69 +78,102 @@ const response = await client.chat.completions.create({
 console.log(response.choices[0].message.content);
 ```
 
-## 📡 API Endpoints
+---
+
+## 📡 API Endpoints Reference
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/v1/models` | List all available models |
-| `GET` | `/v1/models/:id` | Get a specific model |
-| `POST` | `/v1/chat/completions` | Chat completion (streaming & non-streaming) |
-| `GET` | `/health` | Server health check |
-| `POST` | `/api/chat` | Ollama-compatible chat |
-| `GET` | `/api/tags` | Ollama-compatible model list |
+| `GET` | `/v1/models` | Lists all discovered active language models |
+| `GET` | `/v1/models/:id` | Returns details of a specific model |
+| `POST` | `/v1/chat/completions` | OpenAI chat completion (supports streaming and non-streaming) |
+| `GET` | `/health` | Server health check (returns active status, host, and port) |
+| `POST` | `/api/chat` | Ollama-compatible chat completions interface |
+| `GET` | `/api/tags` | Ollama-compatible active models tags listing |
 
-## ⚙️ Settings
+---
 
-All settings are accessible via VS Code Settings UI under `lmBridge.*`:
+## ⚙️ Configuration Properties
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `lmBridge.port` | `11434` | Server port |
-| `lmBridge.host` | `127.0.0.1` | Bind address |
-| `lmBridge.autoStart` | `false` | Auto-start on IDE launch |
-| `lmBridge.authEnabled` | `true` | Require Bearer token |
-| `lmBridge.defaultModel` | `""` | Default model if not specified |
-| `lmBridge.corsOrigins` | `*` | Allowed CORS origins |
-| `lmBridge.logLevel` | `info` | Log verbosity |
-| `lmBridge.maxConcurrentRequests` | `5` | Max simultaneous requests |
-| `lmBridge.requestTimeout` | `120000` | Request timeout (ms) |
+You can customize the extension behavior either from the **Control Panel UI** or directly in the VS Code Settings under the `lmBridge.*` workspace scope:
 
-## 🏗️ Architecture
+| Configuration | Default | Description |
+|---------------|---------|-------------|
+| `lmBridge.port` | `11434` | The local port the API server binds to. |
+| `lmBridge.host` | `127.0.0.1` | Host interface. Bind to `127.0.0.1` (localhost only) or `0.0.0.0` (all local network interfaces). |
+| `lmBridge.autoStart` | `false` | Automatically start the server on IDE launch. |
+| `lmBridge.authEnabled` | `true` | Enforce API Bearer token authentication header checks. |
+| `lmBridge.defaultModel` | `""` | Default fallback model name if the incoming request omits the `model` property. |
+| `lmBridge.corsOrigins` | `*` | Custom CORS allowed origins list (comma-separated). |
+| `lmBridge.logLevel` | `info` | Logs verbosity levels: `none`, `error`, `info`, or `debug` (verbose). |
+| `lmBridge.maxConcurrentRequests` | `5` | Maximum number of parallel LLM inferences supported simultaneously. |
+| `lmBridge.requestTimeout` | `120000` | Timeout threshold in milliseconds for model execution. |
+
+---
+
+## 🏗️ Technical Architecture
 
 ```
-External App / Script
-    ↓ HTTP Request
-┌─────────────────────────────────┐
-│  LM Bridge Extension            │
-│  ┌───────────────────────────┐  │
-│  │  HTTP Server              │  │
-│  │  ├─ Auth Middleware       │  │
-│  │  ├─ Router                │  │
-│  │  └─ LM Bridge Core       │  │
-│  │     └─ vscode.lm API ──────── Internal Models (Gemini, etc.)
-│  ├───────────────────────────┤  │
-│  │  Control Panel (Webview)  │  │
-│  │  Status Bar Widget        │  │
-│  │  Token Manager            │  │
-│  └───────────────────────────┘  │
-└─────────────────────────────────┘
+External Apps & Scripts (Python, Node, LLM Clients)
+                   │
+                   ▼ (HTTP Requests)
+┌──────────────────────────────────────────────┐
+│  OmniCode Proxy Extension                    │
+│                                              │
+│  ┌────────────────────────────────────────┐  │
+│  │   HTTP server (Node/Express-like)       │  │
+│  │   ├─ CORS & Logger Middlewares         │  │
+│  │   ├─ Token Authentication Validator     │  │
+│  │   └─ API Router                        │  │
+│  └───────────────────┬────────────────────┘  │
+│                      │                       │
+│                      ▼                       │
+│  ┌────────────────────────────────────────┐  │
+│  │   Core Controller                      │  │
+│  │   ├─ Token Manager (SecretStorage)     │  │
+│  │   └─ Model Mapper / Proxy Resolver     │  │
+│  └───────────────────┬────────────────────┘  │
+│                      │                       │
+│                      ▼                       │
+│              vscode.lm APIs                  │
+└──────────────────────┼───────────────────────┘
+                       │
+                       ▼ (Public API Boundary)
+         Internal IDE Language Models
+             (Gemini, Claude, etc.)
 ```
 
-## 🛠️ Development
+---
 
+## 🛠️ Developer Setup & Compilation
+
+### Requirements
+- **Node.js** v18+
+- **npm** v9+
+
+### Quick Start Development
 ```bash
-# Install dependencies
+# Clone the repository
+git clone https://github.com/allwin-antony/OmniCode_Proxy.git
+cd OmniCode_Proxy
+
+# Install necessary modules
 npm install
 
-# Compile TypeScript
+# Compile TypeScript once
 npm run compile
 
-# Watch for changes
+# Run the TypeScript compiler watcher in the background
 npm run watch
-
-# Press F5 in VS Code to launch Extension Development Host
 ```
 
-## 📄 License
+#### Launching and Debugging:
+1. Open the project root folder in your IDE workspace.
+2. Navigate to the **Run & Debug** pane (`Ctrl+Shift+D`).
+3. Select **Run Extension** and press **F5**. This launches an isolated *Extension Development Host* window.
+4. Run `LM Bridge: Open Control Panel` or test endpoint curls against your running instance.
 
-MIT
+---
+
+## 📄 License
+Licensed under the [MIT License](file:///home/allwin.antony@acsiatech.com/Downloads/Model_Exposer/LICENSE).

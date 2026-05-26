@@ -1,9 +1,13 @@
 {
-  "name": "lm-bridge",
-  "displayName": "LM Bridge — Local AI Server",
+  "name": "omnicode-proxy",
+  "displayName": "OmniCode Proxy — Local AI Server",
   "description": "Expose internal IDE language models (Gemini, Claude, etc.) as a local OpenAI-compatible HTTP API server. Like Ollama, but powered by the models already inside your IDE.",
-  "version": "0.1.0",
-  "publisher": "lm-bridge",
+  "version": "1.0.0",
+  "publisher": "allwin-antony",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/allwin-antony/OmniCode_Proxy.git"
+  },
   "license": "MIT",
   "engines": {
     "vscode": "^1.93.0"
