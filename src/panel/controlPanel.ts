@@ -129,6 +129,7 @@ export class ControlPanel {
     private async handleMessage(msg: any): Promise<void> {
         switch (msg.type) {
             case 'getFullState':
+                await this.modelMapper.refresh();
                 this.sendFullState();
                 break;
 
@@ -1110,8 +1111,6 @@ curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
                 return;
             }
 
-
-
             container.innerHTML = \`<table class="model-table">
                 <thead><tr><th>Model ID</th><th>Family</th><th>Vendor</th><th>Max Tokens</th></tr></thead>
                 <tbody>\${models.map(m => \`<tr>
@@ -1123,7 +1122,7 @@ curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
             </table>\`;
 
             // Update default model dropdown
-            const currentDefault = modelSelect.value;
+            const currentDefault = modelSelect.value || (currentState.config && currentState.config.defaultModel) || '';
             modelSelect.innerHTML = '<option value="">(require explicit model)</option>' +
                 models.map(m => \`<option value="\${m.id}" \${m.id === currentDefault ? 'selected' : ''}>\${m.id}</option>\`).join('');
         }
@@ -1137,6 +1136,11 @@ curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
             document.getElementById('cfg-corsOrigins').value = config.corsOrigins;
             document.getElementById('cfg-logLevel').value = config.logLevel;
             document.getElementById('cfg-maxConcurrent').value = config.maxConcurrentRequests;
+
+            const modelSelect = document.getElementById('cfg-defaultModel');
+            if (modelSelect) {
+                modelSelect.value = config.defaultModel || '';
+            }
         }
 
         function renderLogs(logs) {
