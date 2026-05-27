@@ -35,7 +35,7 @@ export class ModelMapper {
 
     private disposables: vscode.Disposable[] = [];
 
-    private readonly diagnosticsChannel = vscode.window.createOutputChannel('LM Bridge Diagnostics');
+    private readonly diagnosticsChannel = vscode.window.createOutputChannel('Omni Bridge Diagnostics');
 
     // Harvester states
     private harvestedDetails: HarvesterDetails | null = null;
@@ -201,7 +201,7 @@ export class ModelMapper {
             this._onDidChangeModels.fire(this.listModels());
         } catch (err: any) {
             this.logDiag(`[Critical Error] Failed to refresh models: ${err?.stack || err?.message || err}`);
-            console.error('[LM Bridge] Failed to refresh models:', err);
+            console.error('[Omni Bridge] Failed to refresh models:', err);
         }
     }
 

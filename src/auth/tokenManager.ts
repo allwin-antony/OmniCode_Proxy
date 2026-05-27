@@ -17,7 +17,7 @@ export interface StoredToken {
     usageCount: number;
 }
 
-const TOKENS_STORAGE_KEY = 'lmBridge.apiTokens';
+const TOKENS_STORAGE_KEY = 'omniBridge.apiTokens';
 
 export class TokenManager {
     private tokens: StoredToken[] = [];

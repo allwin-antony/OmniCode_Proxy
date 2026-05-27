@@ -1,9 +1,5 @@
 # OmniCode Proxy — Local AI Server Extension
 
-[![Version](https://img.shields.io/visual-studio-marketplace/v/allwin-antony.omnicode-proxy?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=allwin-antony.omnicode-proxy)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/allwin-antony.omnicode-proxy?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=allwin-antony.omnicode-proxy)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-
 > **Expose your IDE's internal language models as a local OpenAI/Ollama-compatible HTTP API.**  
 > Like Ollama, but powered by the premium high-quality Gemini models already active and authenticated inside your Google Antigravity or vanilla VS Code workspace.
 
@@ -17,7 +13,6 @@
 - [API Endpoints Reference](#-api-endpoints-reference)
 - [Configuration Properties](#️-configuration-properties)
 - [Technical Architecture](#️-technical-architecture)
-- [Developer Setup & Compilation](#️-developer-setup--compilation)
 - [License](#-license)
 
 ---
@@ -62,11 +57,11 @@ This translates to complete, latency-free access to internal premium Gemini mode
 
 ### 1. Install & Launch
 - Install the **OmniCode Proxy** extension (`omnicode-proxy-1.0.0.vsix`) inside your IDE.
-- Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for **LM Bridge: Open Control Panel**.
+- Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for **Omni Bridge: Open Control Panel**.
 
 ### 2. Configure & Start Server
 - Adjust your desired binding port (default: `11434`) and host interface.
-- Click **Start Server** or run **LM Bridge: Start Server** from the Command Palette.
+- Click **Start Server** or run **Omni Bridge: Start Server** from the Command Palette.
 
 ### 3. Generate secure API Tokens
 - Navigate to the **API Tokens** tab in the Control Panel dashboard and click **+ Generate Token**.
@@ -125,19 +120,19 @@ Configure OmniCode Proxy in client extensions as an OpenAI-compatible provider:
 
 ## ⚙️ Configuration Properties
 
-You can customize server behaviors either from the **Control Panel UI** or directly in the VS Code Settings under the `lmBridge.*` workspace scope:
+You can customize server behaviors either from the **Control Panel UI** or directly in the VS Code Settings under the `omniBridge.*` workspace scope:
 
 | Configuration | Default | Description |
 |---------------|---------|-------------|
-| `lmBridge.port` | `11434` | The local port the API server binds to. |
-| `lmBridge.host` | `127.0.0.1` | Host interface. Bind to `127.0.0.1` (localhost only) or `0.0.0.0` (all local network interfaces). |
-| `lmBridge.autoStart` | `false` | Automatically start the server on IDE launch. |
-| `lmBridge.authEnabled` | `true` | Enforce API Bearer token authentication header checks. |
-| `lmBridge.defaultModel` | `""` | Default fallback model name if the incoming request omits the `model` property. |
-| `lmBridge.corsOrigins` | `*` | Custom CORS allowed origins list (comma-separated). |
-| `lmBridge.logLevel` | `info` | Logs verbosity levels: `none`, `error`, `info`, or `debug` (verbose). |
-| `lmBridge.maxConcurrentRequests` | `5` | Maximum number of parallel LLM inferences supported simultaneously. |
-| `lmBridge.requestTimeout` | `120000` | Timeout threshold in milliseconds for model execution. |
+| `omniBridge.port` | `11434` | The local port the API server binds to. |
+| `omniBridge.host` | `127.0.0.1` | Host interface. Bind to `127.0.0.1` (localhost only) or `0.0.0.0` (all local network interfaces). |
+| `omniBridge.autoStart` | `false` | Automatically start the server on IDE launch. |
+| `omniBridge.authEnabled` | `true` | Enforce API Bearer token authentication header checks. |
+| `omniBridge.defaultModel` | `""` | Default fallback model name if the incoming request omits the `model` property. |
+| `omniBridge.corsOrigins` | `*` | Custom CORS allowed origins list (comma-separated). |
+| `omniBridge.logLevel` | `info` | Logs verbosity levels: `none`, `error`, `info`, or `debug` (verbose). |
+| `omniBridge.maxConcurrentRequests` | `5` | Maximum number of parallel LLM inferences supported simultaneously. |
+| `omniBridge.requestTimeout` | `120000` | Timeout threshold in milliseconds for model execution. |
 
 ---
 
@@ -183,35 +178,6 @@ OmniCode Proxy is built with a dual-layer abstraction framework:
 
 ---
 
-## 🛠️ Developer Setup & Compilation
-
-### Requirements
-- **Node.js** v18+
-- **npm** v9+
-
-### Quick Start Development
-```bash
-# Clone the repository
-git clone https://github.com/allwin-antony/OmniCode_Proxy.git
-cd OmniCode_Proxy
-
-# Install necessary modules
-npm install
-
-# Compile TypeScript once
-npm run compile
-
-# Run the TypeScript compiler watcher in the background
-npm run watch
-```
-
-#### Launching and Debugging:
-1. Open the project root folder in your IDE workspace.
-2. Navigate to the **Run & Debug** pane (`Ctrl+Shift+D`).
-3. Select **Run Extension** and press **F5**. This launches an isolated *Extension Development Host* window.
-4. Run `LM Bridge: Open Control Panel` or test endpoint curls against your running instance.
-
----
 
 ## 📄 License
-Licensed under the [MIT License](file:///home/allwin.antony@acsiatech.com/Downloads/Model_Exposer/LICENSE).
+Licensed under the [MIT License].

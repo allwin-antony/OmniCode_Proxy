@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as vscode from 'vscode';
-import { LMBridge, ChatCompletionRequest, LMBridgeError } from '../bridge/lmBridge.js';
+import { LMBridge, ChatCompletionRequest, LMBridgeError } from '../bridge/omniBridge.js';
 import { ModelMapper } from '../bridge/modelMapper.js';
 import { RequestLogger } from '../logger.js';
 
@@ -22,11 +22,11 @@ export class Router {
     private readonly startTime = Date.now();
 
     constructor(
-        private readonly lmBridge: LMBridge,
+        private readonly omniBridge: LMBridge,
         private readonly modelMapper: ModelMapper,
         private readonly logger: RequestLogger
     ) {
-        this.maxConcurrent = vscode.workspace.getConfiguration('lmBridge')
+        this.maxConcurrent = vscode.workspace.getConfiguration('omniBridge')
             .get<number>('maxConcurrentRequests', 5);
     }
 
@@ -166,7 +166,7 @@ export class Router {
             return;
         }
 
-        const defaultModel = vscode.workspace.getConfiguration('lmBridge').get<string>('defaultModel', '');
+        const defaultModel = vscode.workspace.getConfiguration('omniBridge').get<string>('defaultModel', '');
         const modelName = request.model || defaultModel;
 
         if (!modelName) {
@@ -190,7 +190,7 @@ export class Router {
                     'X-Accel-Buffering': 'no',
                 });
 
-                await this.lmBridge.chatCompletionStream(request, {
+                await this.omniBridge.chatCompletionStream(request, {
                     onChunk: (chunk) => {
                         res.write(`data: ${JSON.stringify(chunk)}\n\n`);
                     },
@@ -217,7 +217,7 @@ export class Router {
                 }, defaultModel);
             } else {
                 // ─── Non-streaming response ───
-                const result = await this.lmBridge.chatCompletion(request, defaultModel);
+                const result = await this.omniBridge.chatCompletion(request, defaultModel);
                 this.sendJSON(res, 200, result);
                 this.logger.log({
                     method: 'POST', path: '/v1/chat/completions',
@@ -266,7 +266,7 @@ export class Router {
         };
 
         if (!openAIReq.model) {
-            const defaultModel = vscode.workspace.getConfiguration('lmBridge').get<string>('defaultModel', '');
+            const defaultModel = vscode.workspace.getConfiguration('omniBridge').get<string>('defaultModel', '');
             openAIReq.model = defaultModel;
         }
 
@@ -275,7 +275,7 @@ export class Router {
             if (openAIReq.stream) {
                 res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
 
-                await this.lmBridge.chatCompletionStream(openAIReq, {
+                await this.omniBridge.chatCompletionStream(openAIReq, {
                     onChunk: (chunk) => {
                         const content = chunk.choices[0]?.delta?.content || '';
                         if (content) {
@@ -308,7 +308,7 @@ export class Router {
                     },
                 });
             } else {
-                const result = await this.lmBridge.chatCompletion(openAIReq);
+                const result = await this.omniBridge.chatCompletion(openAIReq);
                 this.sendJSON(res, 200, {
                     model: openAIReq.model,
                     created_at: new Date().toISOString(),
@@ -350,7 +350,7 @@ export class Router {
     // ─── Utilities ───
 
     private setCorsHeaders(res: http.ServerResponse): void {
-        const origins = vscode.workspace.getConfiguration('lmBridge')
+        const origins = vscode.workspace.getConfiguration('omniBridge')
             .get<string>('corsOrigins', '*');
         res.setHeader('Access-Control-Allow-Origin', origins);
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -377,7 +377,7 @@ export class Router {
      * Update the max concurrent requests setting.
      */
     refreshSettings(): void {
-        this.maxConcurrent = vscode.workspace.getConfiguration('lmBridge')
+        this.maxConcurrent = vscode.workspace.getConfiguration('omniBridge')
             .get<number>('maxConcurrentRequests', 5);
     }
 }

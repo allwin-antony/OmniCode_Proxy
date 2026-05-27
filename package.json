@@ -4,6 +4,7 @@
   "description": "Expose internal IDE language models (Gemini, Claude, etc.) as a local OpenAI-compatible HTTP API server. Like Ollama, but powered by the models already inside your IDE.",
   "version": "1.0.0",
   "publisher": "allwin-antony",
+  "icon": "assets/image.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/allwin-antony/OmniCode_Proxy.git"
@@ -15,7 +16,6 @@
   "enabledApiProposals": [
     "languageModelProxy"
   ],
-
   "categories": [
     "AI",
     "Machine Learning",
@@ -38,45 +38,45 @@
   "contributes": {
     "commands": [
       {
-        "command": "lmBridge.startServer",
-        "title": "LM Bridge: Start Server",
+        "command": "omniBridge.startServer",
+        "title": "Omni Bridge: Start Server",
         "icon": "$(play)"
       },
       {
-        "command": "lmBridge.stopServer",
-        "title": "LM Bridge: Stop Server",
+        "command": "omniBridge.stopServer",
+        "title": "Omni Bridge: Stop Server",
         "icon": "$(debug-stop)"
       },
       {
-        "command": "lmBridge.restartServer",
-        "title": "LM Bridge: Restart Server",
+        "command": "omniBridge.restartServer",
+        "title": "Omni Bridge: Restart Server",
         "icon": "$(debug-restart)"
       },
       {
-        "command": "lmBridge.openControlPanel",
-        "title": "LM Bridge: Open Control Panel",
+        "command": "omniBridge.openControlPanel",
+        "title": "Omni Bridge: Open Control Panel",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "lmBridge.generateToken",
-        "title": "LM Bridge: Generate API Token"
+        "command": "omniBridge.generateToken",
+        "title": "Omni Bridge: Generate API Token"
       },
       {
-        "command": "lmBridge.copyEndpoint",
-        "title": "LM Bridge: Copy Endpoint URL"
+        "command": "omniBridge.copyEndpoint",
+        "title": "Omni Bridge: Copy Endpoint URL"
       }
     ],
     "configuration": {
-      "title": "LM Bridge",
+      "title": "Omni Bridge",
       "properties": {
-        "lmBridge.port": {
+        "omniBridge.port": {
           "type": "number",
           "default": 11434,
           "minimum": 1024,
           "maximum": 65535,
           "description": "Port number for the local HTTP server."
         },
-        "lmBridge.host": {
+        "omniBridge.host": {
           "type": "string",
           "default": "127.0.0.1",
           "enum": [
@@ -89,27 +89,27 @@
           ],
           "description": "Network interface to bind the server to."
         },
-        "lmBridge.autoStart": {
+        "omniBridge.autoStart": {
           "type": "boolean",
           "default": false,
           "description": "Automatically start the server when the IDE opens."
         },
-        "lmBridge.authEnabled": {
+        "omniBridge.authEnabled": {
           "type": "boolean",
           "default": true,
           "description": "Require a Bearer API token for all requests."
         },
-        "lmBridge.defaultModel": {
+        "omniBridge.defaultModel": {
           "type": "string",
           "default": "",
           "description": "Default model family to use when the request doesn't specify one. Leave empty to require explicit model selection."
         },
-        "lmBridge.corsOrigins": {
+        "omniBridge.corsOrigins": {
           "type": "string",
           "default": "*",
           "description": "Allowed CORS origins (comma-separated). Use '*' to allow all."
         },
-        "lmBridge.logLevel": {
+        "omniBridge.logLevel": {
           "type": "string",
           "default": "info",
           "enum": [
@@ -126,14 +126,14 @@
           ],
           "description": "Log verbosity level."
         },
-        "lmBridge.maxConcurrentRequests": {
+        "omniBridge.maxConcurrentRequests": {
           "type": "number",
           "default": 5,
           "minimum": 1,
           "maximum": 20,
           "description": "Maximum number of simultaneous inference requests."
         },
-        "lmBridge.requestTimeout": {
+        "omniBridge.requestTimeout": {
           "type": "number",
           "default": 120000,
           "minimum": 5000,

@@ -19,8 +19,8 @@ export class StatusBarManager {
             vscode.StatusBarAlignment.Right,
             50
         );
-        this.item.command = 'lmBridge.openControlPanel';
-        this.item.name = 'LM Bridge';
+        this.item.command = 'omniBridge.openControlPanel';
+        this.item.name = 'Omni Bridge';
         this.update('stopped');
         this.item.show();
     }
@@ -36,29 +36,29 @@ export class StatusBarManager {
 
         switch (state) {
             case 'stopped':
-                this.item.text = '$(circle-slash) LM Bridge: Off';
-                this.item.tooltip = 'LM Bridge — Server is stopped. Click to open Control Panel.';
+                this.item.text = '$(circle-slash) Omni Bridge: Off';
+                this.item.tooltip = 'Omni Bridge — Server is stopped. Click to open Control Panel.';
                 this.item.backgroundColor = undefined;
                 this.startTime = 0;
                 this.requestCount = 0;
                 break;
 
             case 'starting':
-                this.item.text = '$(loading~spin) LM Bridge: Starting...';
-                this.item.tooltip = 'LM Bridge — Server is starting...';
+                this.item.text = '$(loading~spin) Omni Bridge: Starting...';
+                this.item.tooltip = 'Omni Bridge — Server is starting...';
                 this.item.backgroundColor = undefined;
                 break;
 
             case 'running':
                 this.startTime = Date.now();
-                this.item.text = `$(broadcast) LM Bridge: :${this.port}`;
+                this.item.text = `$(broadcast) Omni Bridge: :${this.port}`;
                 this.updateRunningTooltip();
                 this.item.backgroundColor = undefined;
                 break;
 
             case 'error':
-                this.item.text = '$(warning) LM Bridge: Error';
-                this.item.tooltip = 'LM Bridge — Server encountered an error. Click to open Control Panel.';
+                this.item.text = '$(warning) Omni Bridge: Error';
+                this.item.tooltip = 'Omni Bridge — Server encountered an error. Click to open Control Panel.';
                 this.item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
                 break;
         }
@@ -94,7 +94,7 @@ export class StatusBarManager {
     private updateRunningTooltip(): void {
         const uptime = this.formatUptime();
         this.item.tooltip = new vscode.MarkdownString(
-            `**LM Bridge** — Running\n\n` +
+            `**Omni Bridge** — Running\n\n` +
             `- **Endpoint:** \`http://localhost:${this.port}/v1\`\n` +
             `- **Uptime:** ${uptime}\n` +
             `- **Requests:** ${this.requestCount}\n\n` +

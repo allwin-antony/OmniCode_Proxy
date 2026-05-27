@@ -20,7 +20,7 @@ export class AuthMiddleware {
      * Check if authentication is enabled in settings.
      */
     isEnabled(): boolean {
-        return vscode.workspace.getConfiguration('lmBridge').get<boolean>('authEnabled', true);
+        return vscode.workspace.getConfiguration('omniBridge').get<boolean>('authEnabled', true);
     }
 
     /**

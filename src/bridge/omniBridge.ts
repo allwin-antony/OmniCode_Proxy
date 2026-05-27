@@ -94,7 +94,7 @@ export class LMBridge {
 
         try {
             const cts = new vscode.CancellationTokenSource();
-            const timeout = vscode.workspace.getConfiguration('lmBridge').get<number>('requestTimeout', 120000);
+            const timeout = vscode.workspace.getConfiguration('omniBridge').get<number>('requestTimeout', 120000);
             const timer = setTimeout(() => cts.cancel(), timeout);
 
             const response = await modelRef.chatModel.sendRequest(
@@ -170,7 +170,7 @@ export class LMBridge {
 
         try {
             const cts = new vscode.CancellationTokenSource();
-            const timeout = vscode.workspace.getConfiguration('lmBridge').get<number>('requestTimeout', 120000);
+            const timeout = vscode.workspace.getConfiguration('omniBridge').get<number>('requestTimeout', 120000);
             const timer = setTimeout(() => cts.cancel(), timeout);
 
             const response = await modelRef.chatModel.sendRequest(
@@ -507,11 +507,11 @@ export class LMBridge {
 
     private generateMockReply(request: ChatCompletionRequest): string {
         const prompt = request.messages[request.messages.length - 1]?.content || '';
-        const port = vscode.workspace.getConfiguration('lmBridge').get<number>('port', 11434);
-        return `🤖 [LM Bridge Sandbox Mode]
+        const port = vscode.workspace.getConfiguration('omniBridge').get<number>('port', 11434);
+        return `🤖 [Omni Bridge Sandbox Mode]
 This is a simulated response from your local API server.
 
-LM Bridge is active, authenticated, and successfully listening on port ${port}.
+Omni Bridge is active, authenticated, and successfully listening on port ${port}.
 
 Why am I seeing this mock model?
 1. The IDE's public Language Model extension API (vscode.lm) currently reports 0 active models in this window. 

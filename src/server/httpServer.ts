@@ -30,12 +30,12 @@ export class HTTPServer {
      */
     async start(): Promise<void> {
         if (this.server) {
-            vscode.window.showWarningMessage('LM Bridge server is already running.');
+            vscode.window.showWarningMessage('Omni Bridge server is already running.');
             return;
         }
 
         // Read current settings
-        const config = vscode.workspace.getConfiguration('lmBridge');
+        const config = vscode.workspace.getConfiguration('omniBridge');
         this.port = config.get<number>('port', 11434);
         this.host = config.get<string>('host', '127.0.0.1');
 
@@ -63,7 +63,7 @@ export class HTTPServer {
                     this.statusBar.incrementRequests();
                     await this.router.handle(req, res);
                 } catch (err) {
-                    console.error('[LM Bridge] Unhandled request error:', err);
+                    console.error('[Omni Bridge] Unhandled request error:', err);
                     if (!res.headersSent) {
                         res.writeHead(500, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({
@@ -78,13 +78,13 @@ export class HTTPServer {
                     this.statusBar.update('error');
                     this._onStateChange.fire('error');
                     vscode.window.showErrorMessage(
-                        `LM Bridge: Port ${this.port} is already in use. Change the port in settings.`,
+                        `Omni Bridge: Port ${this.port} is already in use. Change the port in settings.`,
                         'Open Settings'
                     ).then(choice => {
                         if (choice === 'Open Settings') {
                             vscode.commands.executeCommand(
                                 'workbench.action.openSettings',
-                                '@ext:lm-bridge.lmBridge.port'
+                                '@ext:lm-bridge.omniBridge.port'
                             );
                         }
                     });
@@ -93,7 +93,7 @@ export class HTTPServer {
                 } else {
                     this.statusBar.update('error');
                     this._onStateChange.fire('error');
-                    vscode.window.showErrorMessage(`LM Bridge server error: ${err.message}`);
+                    vscode.window.showErrorMessage(`Omni Bridge server error: ${err.message}`);
                     this.server = null;
                     reject(err);
                 }
@@ -103,7 +103,7 @@ export class HTTPServer {
                 this.statusBar.update('running', this.port);
                 this._onStateChange.fire('running');
                 vscode.window.showInformationMessage(
-                    `LM Bridge server started on http://${this.host}:${this.port}/v1`
+                    `Omni Bridge server started on http://${this.host}:${this.port}/v1`
                 );
                 resolve();
             });
@@ -131,7 +131,7 @@ export class HTTPServer {
                 this.server = null;
                 this.statusBar.update('stopped');
                 this._onStateChange.fire('stopped');
-                vscode.window.showInformationMessage('LM Bridge server stopped.');
+                vscode.window.showInformationMessage('Omni Bridge server stopped.');
                 resolve();
             });
 

@@ -36,7 +36,7 @@ export class RequestLogger {
     private totalErrors = 0;
 
     constructor() {
-        this.outputChannel = vscode.window.createOutputChannel('LM Bridge', { log: true });
+        this.outputChannel = vscode.window.createOutputChannel('Omni Bridge', { log: true });
         this.readLogLevel();
     }
 
@@ -44,7 +44,7 @@ export class RequestLogger {
      * Re-read the log level from settings.
      */
     readLogLevel(): void {
-        const config = vscode.workspace.getConfiguration('lmBridge');
+        const config = vscode.workspace.getConfiguration('omniBridge');
         this.logLevel = config.get<LogLevel>('logLevel', 'info');
     }
 

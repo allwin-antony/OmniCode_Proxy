@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { TokenManager } from './auth/tokenManager.js';
 import { ModelMapper } from './bridge/modelMapper.js';
-import { LMBridge } from './bridge/lmBridge.js';
+import { LMBridge } from './bridge/omniBridge.js';
 import { AuthMiddleware } from './server/middleware.js';
 import { Router } from './server/router.js';
 import { HTTPServer } from './server/httpServer.js';
@@ -10,7 +10,7 @@ import { RequestLogger } from './logger.js';
 import { ControlPanel } from './panel/controlPanel.js';
 
 /**
- * LM Bridge Extension — Entry Point
+ * Omni Bridge Extension — Entry Point
  * 
  * Exposes internal IDE language models as a local OpenAI-compatible HTTP API.
  * Think of it as "Ollama, but powered by the models already inside your IDE."
@@ -21,7 +21,7 @@ let statusBar: StatusBarManager;
 let controlPanel: ControlPanel;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    console.log('[LM Bridge] Activating extension...');
+    console.log('[Omni Bridge] Activating extension...');
 
     // ─── 1. Initialize core services ───
     const tokenManager = new TokenManager(context.secrets);
@@ -30,12 +30,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const modelMapper = new ModelMapper();
     await modelMapper.initialize();
 
-    const lmBridge = new LMBridge(modelMapper);
+    const omniBridge = new LMBridge(modelMapper);
     const logger = new RequestLogger();
     const authMiddleware = new AuthMiddleware(tokenManager);
 
     statusBar = new StatusBarManager();
-    const router = new Router(lmBridge, modelMapper, logger);
+    const router = new Router(omniBridge, modelMapper, logger);
     httpServer = new HTTPServer(router, authMiddleware, statusBar, logger);
 
     controlPanel = new ControlPanel(
@@ -48,7 +48,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // ─── 2. Register commands ───
     context.subscriptions.push(
-        vscode.commands.registerCommand('lmBridge.startServer', async () => {
+        vscode.commands.registerCommand('omniBridge.startServer', async () => {
             try {
                 await httpServer.start();
             } catch {
@@ -56,19 +56,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             }
         }),
 
-        vscode.commands.registerCommand('lmBridge.stopServer', async () => {
+        vscode.commands.registerCommand('omniBridge.stopServer', async () => {
             await httpServer.stop();
         }),
 
-        vscode.commands.registerCommand('lmBridge.restartServer', async () => {
+        vscode.commands.registerCommand('omniBridge.restartServer', async () => {
             await httpServer.restart();
         }),
 
-        vscode.commands.registerCommand('lmBridge.openControlPanel', () => {
+        vscode.commands.registerCommand('omniBridge.openControlPanel', () => {
             controlPanel.open();
         }),
 
-        vscode.commands.registerCommand('lmBridge.generateToken', async () => {
+        vscode.commands.registerCommand('omniBridge.generateToken', async () => {
             const token = await tokenManager.generateToken();
             const copyChoice = await vscode.window.showInformationMessage(
                 `New API token generated: ${token.token.substring(0, 12)}...`,
@@ -83,7 +83,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             }
         }),
 
-        vscode.commands.registerCommand('lmBridge.copyEndpoint', async () => {
+        vscode.commands.registerCommand('omniBridge.copyEndpoint', async () => {
             const endpoint = httpServer.getEndpointUrl();
             await vscode.env.clipboard.writeText(endpoint);
             vscode.window.showInformationMessage(`Endpoint copied: ${endpoint}`);
@@ -93,17 +93,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // ─── 3. Listen for settings changes ───
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration('lmBridge')) {
+            if (e.affectsConfiguration('omniBridge')) {
                 logger.readLogLevel();
                 router.refreshSettings();
 
                 // If server is running and critical settings changed, notify user
                 if (httpServer.isRunning() && (
-                    e.affectsConfiguration('lmBridge.port') ||
-                    e.affectsConfiguration('lmBridge.host')
+                    e.affectsConfiguration('omniBridge.port') ||
+                    e.affectsConfiguration('omniBridge.host')
                 )) {
                     vscode.window.showInformationMessage(
-                        'LM Bridge: Server settings changed. Restart to apply.',
+                        'Omni Bridge: Server settings changed. Restart to apply.',
                         'Restart Server'
                     ).then(choice => {
                         if (choice === 'Restart Server') {
@@ -125,7 +125,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     );
 
     // ─── 5. Auto-start if configured ───
-    const autoStart = vscode.workspace.getConfiguration('lmBridge').get<boolean>('autoStart', false);
+    const autoStart = vscode.workspace.getConfiguration('omniBridge').get<boolean>('autoStart', false);
     if (autoStart) {
         // Delay slightly to let the IDE finish loading
         setTimeout(async () => {
@@ -137,12 +137,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }, 2000);
     }
 
-    console.log('[LM Bridge] Extension activated successfully.');
-    console.log(`[LM Bridge] ${modelMapper.modelCount} model(s) available.`);
+    console.log('[Omni Bridge] Extension activated successfully.');
+    console.log(`[Omni Bridge] ${modelMapper.modelCount} model(s) available.`);
 }
 
 export function deactivate(): void {
-    console.log('[LM Bridge] Deactivating extension...');
+    console.log('[Omni Bridge] Deactivating extension...');
     if (httpServer) {
         httpServer.dispose();
     }

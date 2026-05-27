@@ -5,7 +5,7 @@ import { ModelMapper } from '../bridge/modelMapper.js';
 import { RequestLogger, LogEntry } from '../logger.js';
 
 /**
- * ControlPanel — Webview-based dashboard for managing the LM Bridge server.
+ * ControlPanel — Webview-based dashboard for managing the Omni Bridge server.
  * 
  * Features:
  * - Server status & controls (start/stop/restart)
@@ -39,8 +39,8 @@ export class ControlPanel {
         }
 
         this.panel = vscode.window.createWebviewPanel(
-            'lmBridgeControlPanel',
-            'LM Bridge — Control Panel',
+            'omniBridgeControlPanel',
+            'Omni Bridge — Control Panel',
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
@@ -96,7 +96,7 @@ export class ControlPanel {
      * Send full current state to the webview.
      */
     private sendFullState(): void {
-        const config = vscode.workspace.getConfiguration('lmBridge');
+        const config = vscode.workspace.getConfiguration('omniBridge');
         this.postMessage({
             type: 'fullState',
             data: {
@@ -198,7 +198,7 @@ export class ControlPanel {
             }
 
             case 'saveConfig': {
-                const config = vscode.workspace.getConfiguration('lmBridge');
+                const config = vscode.workspace.getConfiguration('omniBridge');
                 const settings = msg.data;
                 const updates: Thenable<void>[] = [];
 
@@ -228,7 +228,7 @@ export class ControlPanel {
                 }
 
                 await Promise.all(updates);
-                vscode.window.showInformationMessage('LM Bridge settings saved.');
+                vscode.window.showInformationMessage('Omni Bridge settings saved.');
 
                 // If server is running, offer restart
                 if (this.server.isRunning()) {
@@ -273,7 +273,7 @@ export class ControlPanel {
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LM Bridge — Control Panel</title>
+    <title>Omni Bridge — Control Panel</title>
     <style>
         /* ─── Reset & Base ─── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -755,7 +755,7 @@ export class ControlPanel {
         <div class="header">
             <div class="header-icon">⚡</div>
             <div>
-                <h1>LM Bridge</h1>
+                <h1>Omni Bridge</h1>
                 <div style="font-size:11px; color:var(--muted)">Local AI Server — OpenAI & Ollama Compatible</div>
             </div>
             <span class="version">v0.1.0</span>
