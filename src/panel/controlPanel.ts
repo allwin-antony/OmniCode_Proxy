@@ -268,12 +268,18 @@ export class ControlPanel {
      * Generate the complete HTML for the Control Panel webview.
      */
     private getHtml(): string {
+        const webview = this.panel!.webview;
+        const toolkitUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, 'resources', 'toolkit.min.js')
+        );
+
         return /*html*/ `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Omni Bridge — Control Panel</title>
+    <script type="module" src="${toolkitUri}"></script>
     <style>
         /* ─── Reset & Base ─── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -283,22 +289,13 @@ export class ControlPanel {
             --fg: var(--vscode-editor-foreground, #cccccc);
             --bg-secondary: var(--vscode-sideBar-background, #252526);
             --border: var(--vscode-panel-border, #333333);
-            --accent: var(--vscode-button-background, #0e639c);
-            --accent-hover: var(--vscode-button-hoverBackground, #1177bb);
-            --accent-fg: var(--vscode-button-foreground, #ffffff);
-            --danger: var(--vscode-errorForeground, #f44747);
-            --success: #4ec9b0;
-            --warning: #cca700;
-            --muted: var(--vscode-descriptionForeground, #888888);
-            --input-bg: var(--vscode-input-background, #3c3c3c);
-            --input-border: var(--vscode-input-border, #555555);
-            --input-fg: var(--vscode-input-foreground, #cccccc);
-            --badge-bg: var(--vscode-badge-background, #4d4d4d);
-            --badge-fg: var(--vscode-badge-foreground, #ffffff);
             --font: var(--vscode-font-family, 'Segoe UI', system-ui, sans-serif);
             --font-mono: var(--vscode-editor-font-family, 'Cascadia Code', 'Fira Code', monospace);
             --radius: 8px;
-            --shadow: 0 2px 8px rgba(0,0,0,0.25);
+            --success: #4ec9b0;
+            --danger: var(--vscode-errorForeground, #f44747);
+            --warning: #cca700;
+            --muted: var(--vscode-descriptionForeground, #888888);
         }
 
         body {
@@ -328,29 +325,21 @@ export class ControlPanel {
         }
 
         .header-icon {
-            font-size: 28px;
-            width: 40px;
-            height: 40px;
+            font-size: 20px;
+            width: 36px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, var(--accent), #9b59b6);
-            border-radius: 10px;
-            color: white;
+            background: var(--vscode-button-background, #0e639c);
+            border-radius: 8px;
+            color: var(--vscode-button-foreground, #ffffff);
         }
 
         .header h1 {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
             letter-spacing: -0.3px;
-        }
-
-        .header .version {
-            font-size: 11px;
-            color: var(--muted);
-            background: var(--badge-bg);
-            padding: 2px 8px;
-            border-radius: 10px;
         }
 
         /* ─── Cards ─── */
@@ -360,34 +349,28 @@ export class ControlPanel {
             border-radius: var(--radius);
             margin-bottom: 20px;
             overflow: hidden;
-            transition: border-color 0.2s;
-        }
-
-        .card:hover {
-            border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
         }
 
         .card-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 14px 18px;
+            padding: 12px 16px;
             border-bottom: 1px solid var(--border);
             font-weight: 600;
-            font-size: 13px;
+            font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--muted);
         }
 
-        .card-header .icon { margin-right: 8px; font-size: 14px; }
-        .card-body { padding: 18px; }
+        .card-body { padding: 16px; }
 
         /* ─── Server Status ─── */
         .status-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 14px;
+            gap: 12px;
             margin-bottom: 16px;
         }
 
@@ -395,20 +378,20 @@ export class ControlPanel {
             background: var(--bg);
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 14px;
+            padding: 12px;
             text-align: center;
         }
 
         .stat-box .label {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .stat-box .value {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
             font-family: var(--font-mono);
         }
@@ -424,66 +407,18 @@ export class ControlPanel {
             flex-wrap: wrap;
         }
 
-        /* ─── Buttons ─── */
-        button {
-            font-family: var(--font);
-            font-size: 12px;
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.15s ease;
-            font-weight: 500;
-        }
-
-        .btn-primary {
-            background: var(--accent);
-            color: var(--accent-fg);
-        }
-        .btn-primary:hover { background: var(--accent-hover); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-danger {
-            background: transparent;
-            color: var(--danger);
-            border: 1px solid var(--danger);
-        }
-        .btn-danger:hover { background: color-mix(in srgb, var(--danger) 15%, transparent); }
-
-        .btn-secondary {
-            background: var(--badge-bg);
-            color: var(--fg);
-            border: 1px solid var(--border);
-        }
-        .btn-secondary:hover { background: color-mix(in srgb, var(--accent) 20%, var(--badge-bg)); }
-
-        .btn-ghost {
-            background: transparent;
-            color: var(--muted);
-            padding: 4px 8px;
-            font-size: 11px;
-        }
-        .btn-ghost:hover { color: var(--fg); background: var(--badge-bg); }
-
-        .btn-sm { padding: 4px 10px; font-size: 11px; }
-
         /* ─── Form Controls ─── */
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 14px;
+            gap: 16px;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
         }
-
-        .form-group.full-width { grid-column: 1 / -1; }
 
         .form-group label {
             font-size: 12px;
@@ -492,39 +427,13 @@ export class ControlPanel {
         }
 
         .form-group .hint {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--muted);
+            margin-top: -2px;
         }
 
-        input[type="text"],
-        input[type="number"],
-        select {
-            font-family: var(--font-mono);
-            font-size: 12px;
-            padding: 7px 10px;
-            background: var(--input-bg);
-            border: 1px solid var(--input-border);
-            border-radius: 4px;
-            color: var(--input-fg);
-            outline: none;
-            transition: border-color 0.15s;
-        }
-
-        input:focus, select:focus {
-            border-color: var(--accent);
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 4px 0;
-        }
-
-        input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            accent-color: var(--accent);
+        vscode-checkbox {
+            margin: 4px 0;
         }
 
         /* ─── Token List ─── */
@@ -534,13 +443,11 @@ export class ControlPanel {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 10px 14px;
+            padding: 8px 12px;
             background: var(--bg);
             border: 1px solid var(--border);
             border-radius: 6px;
-            transition: border-color 0.15s;
         }
-        .token-item:hover { border-color: var(--accent); }
 
         .token-value {
             font-family: var(--font-mono);
@@ -562,27 +469,27 @@ export class ControlPanel {
         .token-actions { display: flex; gap: 6px; }
 
         .new-token-display {
-            background: color-mix(in srgb, var(--success) 10%, var(--bg));
+            background: color-mix(in srgb, var(--success) 8%, var(--bg));
             border: 1px solid var(--success);
             border-radius: 6px;
-            padding: 14px;
+            padding: 12px;
             margin-bottom: 12px;
             animation: fadeIn 0.3s ease;
         }
 
         .new-token-display .token-full {
             font-family: var(--font-mono);
-            font-size: 13px;
+            font-size: 12px;
             color: var(--success);
             word-break: break-all;
-            padding: 8px;
+            padding: 6px;
             background: var(--bg);
             border-radius: 4px;
-            margin: 8px 0;
+            margin: 6px 0;
         }
 
         .new-token-display .warning-text {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--warning);
         }
 
@@ -600,7 +507,7 @@ export class ControlPanel {
             color: var(--muted);
             font-weight: 600;
             text-transform: uppercase;
-            font-size: 11px;
+            font-size: 10px;
             letter-spacing: 0.3px;
         }
 
@@ -610,16 +517,12 @@ export class ControlPanel {
             font-family: var(--font-mono);
         }
 
-        .model-table tr:hover td {
-            background: color-mix(in srgb, var(--accent) 8%, transparent);
-        }
-
         /* ─── Quick Start ─── */
         .endpoint-box {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 12px 16px;
+            padding: 10px 14px;
             background: var(--bg);
             border: 1px solid var(--border);
             border-radius: 6px;
@@ -628,7 +531,7 @@ export class ControlPanel {
 
         .endpoint-url {
             font-family: var(--font-mono);
-            font-size: 14px;
+            font-size: 13px;
             color: var(--success);
             flex: 1;
         }
@@ -637,54 +540,18 @@ export class ControlPanel {
             background: var(--bg);
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 14px;
+            padding: 12px;
             font-family: var(--font-mono);
-            font-size: 12px;
-            line-height: 1.6;
+            font-size: 11px;
+            line-height: 1.5;
             overflow-x: auto;
-            position: relative;
             white-space: pre;
             color: var(--fg);
         }
 
-        .code-block .copy-overlay {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-        }
-
-        .tab-bar {
-            display: flex;
-            gap: 2px;
-            margin-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .tab-btn {
-            padding: 8px 14px;
-            font-size: 12px;
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid transparent;
-            color: var(--muted);
-            cursor: pointer;
-            font-family: var(--font);
-            transition: all 0.15s;
-        }
-
-        .tab-btn.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-        }
-
-        .tab-btn:hover { color: var(--fg); }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
         /* ─── Request Log ─── */
         .log-container {
-            max-height: 300px;
+            max-height: 250px;
             overflow-y: auto;
             font-family: var(--font-mono);
             font-size: 11px;
@@ -698,7 +565,6 @@ export class ControlPanel {
             white-space: nowrap;
         }
 
-        .log-entry:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
         .log-time { color: var(--muted); min-width: 80px; }
         .log-method { min-width: 50px; font-weight: 600; }
         .log-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -708,39 +574,20 @@ export class ControlPanel {
         .log-duration { color: var(--muted); min-width: 60px; text-align: right; }
 
         .log-empty {
-            padding: 30px;
+            padding: 24px;
             text-align: center;
             color: var(--muted);
             font-family: var(--font);
-            font-size: 13px;
+            font-size: 12px;
         }
-
-        /* ─── Animations ─── */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .pulse { animation: pulse 1.5s infinite; }
 
         /* ─── Empty States ─── */
         .empty-state {
             text-align: center;
-            padding: 24px;
+            padding: 20px;
             color: var(--muted);
         }
-        .empty-state .emoji { font-size: 24px; margin-bottom: 8px; }
-
-        /* ─── Scrollbar ─── */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+        .empty-state .emoji { font-size: 20px; margin-bottom: 6px; }
 
         /* ─── Responsive ─── */
         @media (max-width: 600px) {
@@ -754,18 +601,18 @@ export class ControlPanel {
         <!-- Header -->
         <div class="header">
             <div class="header-icon">⚡</div>
-            <div>
+            <div style="flex: 1">
                 <h1>Omni Bridge</h1>
                 <div style="font-size:11px; color:var(--muted)">Local AI Server — OpenAI & Ollama Compatible</div>
             </div>
-            <span class="version">v0.1.0</span>
+            <vscode-tag class="version">v1.0.0</vscode-tag>
         </div>
 
         <!-- Server Status Card -->
         <div class="card" id="server-card">
             <div class="card-header">
-                <span><span class="icon">📡</span> Server Status</span>
-                <span id="server-state-badge" style="font-size:11px; text-transform:none; font-weight:400"></span>
+                <span>📡 Server Status</span>
+                <vscode-tag id="server-state-badge" style="display:none"></vscode-tag>
             </div>
             <div class="card-body">
                 <div class="status-grid">
@@ -787,9 +634,9 @@ export class ControlPanel {
                     </div>
                 </div>
                 <div class="server-actions">
-                    <button class="btn-primary" id="btn-start" onclick="sendMsg('startServer')">▶ Start Server</button>
-                    <button class="btn-danger btn-sm" id="btn-stop" onclick="sendMsg('stopServer')" style="display:none">■ Stop</button>
-                    <button class="btn-secondary btn-sm" id="btn-restart" onclick="sendMsg('restartServer')" style="display:none">↻ Restart</button>
+                    <vscode-button id="btn-start" onclick="sendMsg('startServer')">▶ Start Server</vscode-button>
+                    <vscode-button id="btn-stop" appearance="secondary" onclick="sendMsg('stopServer')" style="display:none">■ Stop Server</vscode-button>
+                    <vscode-button id="btn-restart" appearance="secondary" onclick="sendMsg('restartServer')" style="display:none">↻ Restart Server</vscode-button>
                 </div>
             </div>
         </div>
@@ -797,63 +644,57 @@ export class ControlPanel {
         <!-- Configuration Card -->
         <div class="card">
             <div class="card-header">
-                <span><span class="icon">⚙️</span> Configuration</span>
-                <button class="btn-ghost" onclick="resetConfig()">Reset Defaults</button>
+                <span>⚙️ Configuration</span>
+                <vscode-button appearance="icon" onclick="resetConfig()" title="Reset to Defaults">Reset Defaults</vscode-button>
             </div>
             <div class="card-body">
                 <div class="form-grid" id="config-form">
                     <div class="form-group">
                         <label for="cfg-port">Port</label>
-                        <input type="number" id="cfg-port" min="1024" max="65535" value="11434" />
-                        <span class="hint">1024–65535</span>
+                        <vscode-text-field id="cfg-port" type="number" min="1024" max="65535" value="11434"></vscode-text-field>
+                        <span class="hint">Port range: 1024–65535</span>
                     </div>
                     <div class="form-group">
                         <label for="cfg-host">Bind Address</label>
-                        <select id="cfg-host">
-                            <option value="127.0.0.1">127.0.0.1 (localhost only)</option>
-                            <option value="0.0.0.0">0.0.0.0 (all interfaces)</option>
-                        </select>
+                        <vscode-dropdown id="cfg-host">
+                            <vscode-option value="127.0.0.1">127.0.0.1 (localhost only)</vscode-option>
+                            <vscode-option value="0.0.0.0">0.0.0.0 (all interfaces)</vscode-option>
+                        </vscode-dropdown>
                     </div>
                     <div class="form-group">
                         <label for="cfg-defaultModel">Default Model</label>
-                        <select id="cfg-defaultModel">
-                            <option value="">(require explicit model)</option>
-                        </select>
+                        <vscode-dropdown id="cfg-defaultModel">
+                            <vscode-option value="">(require explicit model)</vscode-option>
+                        </vscode-dropdown>
                     </div>
                     <div class="form-group">
                         <label for="cfg-maxConcurrent">Max Concurrent Requests</label>
-                        <input type="number" id="cfg-maxConcurrent" min="1" max="20" value="5" />
+                        <vscode-text-field id="cfg-maxConcurrent" type="number" min="1" max="20" value="5"></vscode-text-field>
                     </div>
                     <div class="form-group">
                         <label for="cfg-corsOrigins">CORS Origins</label>
-                        <input type="text" id="cfg-corsOrigins" value="*" />
+                        <vscode-text-field id="cfg-corsOrigins" value="*"></vscode-text-field>
                         <span class="hint">Comma-separated or * for all</span>
                     </div>
                     <div class="form-group">
                         <label for="cfg-logLevel">Log Level</label>
-                        <select id="cfg-logLevel">
-                            <option value="none">None</option>
-                            <option value="error">Error</option>
-                            <option value="info" selected>Info</option>
-                            <option value="debug">Debug</option>
-                        </select>
+                        <vscode-dropdown id="cfg-logLevel">
+                            <vscode-option value="none">None</vscode-option>
+                            <vscode-option value="error">Error</vscode-option>
+                            <vscode-option value="info">Info</vscode-option>
+                            <vscode-option value="debug">Debug</vscode-option>
+                        </vscode-dropdown>
                     </div>
                     <div class="form-group">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="cfg-autoStart" />
-                            <label for="cfg-autoStart">Auto-start server on IDE launch</label>
-                        </div>
+                        <vscode-checkbox id="cfg-autoStart">Auto-start server on IDE launch</vscode-checkbox>
                     </div>
                     <div class="form-group">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="cfg-authEnabled" checked />
-                            <label for="cfg-authEnabled">Require API token authentication</label>
-                        </div>
+                        <vscode-checkbox id="cfg-authEnabled">Require API token authentication</vscode-checkbox>
                     </div>
                 </div>
                 <div style="margin-top:16px; display:flex; gap:10px;">
-                    <button class="btn-primary" onclick="saveConfig()">💾 Save Settings</button>
-                    <button class="btn-secondary" onclick="saveAndRestart()">💾 Save & Restart</button>
+                    <vscode-button onclick="saveConfig()">💾 Save Settings</vscode-button>
+                    <vscode-button appearance="secondary" onclick="saveAndRestart()">💾 Save & Restart</vscode-button>
                 </div>
             </div>
         </div>
@@ -861,10 +702,10 @@ export class ControlPanel {
         <!-- API Tokens Card -->
         <div class="card">
             <div class="card-header">
-                <span><span class="icon">🔑</span> API Tokens</span>
-                <div style="display:flex; gap:6px;">
-                    <button class="btn-primary btn-sm" onclick="generateToken()">+ Generate Token</button>
-                    <button class="btn-danger btn-sm" id="btn-revoke-all" onclick="revokeAll()" style="display:none">Revoke All</button>
+                <span>🔑 API Tokens</span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <vscode-button onclick="generateToken()">+ Generate Token</vscode-button>
+                    <vscode-button id="btn-revoke-all" appearance="secondary" onclick="revokeAll()" style="display:none">Revoke All</vscode-button>
                 </div>
             </div>
             <div class="card-body">
@@ -881,8 +722,8 @@ export class ControlPanel {
         <!-- Available Models Card -->
         <div class="card">
             <div class="card-header">
-                <span><span class="icon">🤖</span> Available Models</span>
-                <button class="btn-ghost" onclick="sendMsg('refreshModels')">↻ Refresh</button>
+                <span>🤖 Available Models</span>
+                <vscode-button appearance="secondary" onclick="sendMsg('refreshModels')">↻ Refresh</vscode-button>
             </div>
             <div class="card-body">
                 <div id="model-list">
@@ -894,38 +735,90 @@ export class ControlPanel {
             </div>
         </div>
 
+        <!-- API Endpoints Card -->
+        <div class="card">
+            <div class="card-header">
+                <span>📡 API Endpoints Reference</span>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                <table class="model-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">Method</th>
+                            <th>Path</th>
+                            <th>Description</th>
+                            <th>API Format</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="color: var(--success); font-weight: bold; padding: 10px 12px;">GET</td>
+                            <td style="font-family: var(--font-mono); font-size: 11px;">/v1/models</td>
+                            <td>Lists all discovered active language models</td>
+                            <td><vscode-tag>OpenAI</vscode-tag></td>
+                        </tr>
+                        <tr>
+                            <td style="color: var(--success); font-weight: bold; padding: 10px 12px;">POST</td>
+                            <td style="font-family: var(--font-mono); font-size: 11px;">/v1/chat/completions</td>
+                            <td>OpenAI-compatible chat completion (supports streaming)</td>
+                            <td><vscode-tag>OpenAI</vscode-tag></td>
+                        </tr>
+                        <tr>
+                            <td style="color: var(--success); font-weight: bold; padding: 10px 12px;">POST</td>
+                            <td style="font-family: var(--font-mono); font-size: 11px;">/api/chat</td>
+                            <td>Ollama-compatible chat completion</td>
+                            <td><vscode-tag>Ollama</vscode-tag></td>
+                        </tr>
+                        <tr>
+                            <td style="color: var(--success); font-weight: bold; padding: 10px 12px;">GET</td>
+                            <td style="font-family: var(--font-mono); font-size: 11px;">/api/tags</td>
+                            <td>Ollama-compatible models tags list</td>
+                            <td><vscode-tag>Ollama</vscode-tag></td>
+                        </tr>
+                        <tr>
+                            <td style="color: var(--success); font-weight: bold; padding: 10px 12px;">GET</td>
+                            <td style="font-family: var(--font-mono); font-size: 11px;">/health</td>
+                            <td>Server health check and statistics</td>
+                            <td><vscode-tag>System</vscode-tag></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Quick Start Card -->
         <div class="card">
             <div class="card-header">
-                <span><span class="icon">🚀</span> Quick Start</span>
+                <span>🚀 Quick Start</span>
             </div>
-            <div class="card-body">
+            <div class="card-body" style="padding: 12px 16px;">
                 <div class="endpoint-box">
                     <span style="color:var(--muted)">Endpoint:</span>
                     <span class="endpoint-url" id="endpoint-url">http://localhost:11434/v1</span>
-                    <button class="btn-secondary btn-sm" onclick="sendMsg('copyEndpoint')">📋 Copy</button>
+                    <vscode-button appearance="secondary" onclick="sendMsg('copyEndpoint')">📋 Copy</vscode-button>
                 </div>
 
-                <div class="tab-bar">
-                    <button class="tab-btn active" onclick="switchTab(event,'tab-curl')">curl</button>
-                    <button class="tab-btn" onclick="switchTab(event,'tab-python')">Python</button>
-                    <button class="tab-btn" onclick="switchTab(event,'tab-node')">Node.js</button>
-                    <button class="tab-btn" onclick="switchTab(event,'tab-ollama')">Ollama-compat</button>
-                </div>
-
-                <div id="tab-curl" class="tab-content active">
-                    <div class="code-block" id="curl-example">curl <span class="url-base">http://localhost:11434/v1</span>/chat/completions \\
+                <vscode-panels>
+                    <vscode-panel-tab id="tab-curl">CURL</vscode-panel-tab>
+                    <vscode-panel-tab id="tab-python">PYTHON</vscode-panel-tab>
+                    <vscode-panel-tab id="tab-node">NODE.JS</vscode-panel-tab>
+                    <vscode-panel-tab id="tab-ollama">OLLAMA</vscode-panel-tab>
+                    
+                    <vscode-panel-view id="view-curl">
+                        <div style="width: 100%">
+                            <div class="code-block" id="curl-example">curl <span class="url-base">http://localhost:11434/v1</span>/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -d '{
-    "model": "gemini-2.5-flash",
+    "model": "gemini-3.5-flash",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'</div>
-                    <button class="btn-ghost" style="margin-top:8px" onclick="copyCurl('curl')">📋 Copy command</button>
-                </div>
-
-                <div id="tab-python" class="tab-content">
-                    <div class="code-block">from openai import OpenAI
+                            <vscode-button appearance="secondary" style="margin-top:8px" onclick="copyCurl('curl')">📋 Copy command</vscode-button>
+                        </div>
+                    </vscode-panel-view>
+                    <vscode-panel-view id="view-python">
+                        <div style="width: 100%">
+                            <div class="code-block" id="python-example">from openai import OpenAI
 
 client = OpenAI(
     base_url="<span class="url-base">http://localhost:11434/v1</span>",
@@ -933,15 +826,16 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash",
     messages=[{"role": "user", "content": "Hello!"}]
 )
 print(response.choices[0].message.content)</div>
-                    <button class="btn-ghost" style="margin-top:8px" onclick="copyCurl('python')">📋 Copy code</button>
-                </div>
-
-                <div id="tab-node" class="tab-content">
-                    <div class="code-block">import OpenAI from "openai";
+                            <vscode-button appearance="secondary" style="margin-top:8px" onclick="copyCurl('python')">📋 Copy code</vscode-button>
+                        </div>
+                    </vscode-panel-view>
+                    <vscode-panel-view id="view-node">
+                        <div style="width: 100%">
+                            <div class="code-block" id="node-example">import OpenAI from "openai";
 
 const client = new OpenAI({
   baseURL: "<span class="url-base">http://localhost:11434/v1</span>",
@@ -949,35 +843,38 @@ const client = new OpenAI({
 });
 
 const response = await client.chat.completions.create({
-  model: "gemini-2.5-flash",
+  model: "gemini-3.5-flash",
   messages: [{ role: "user", content: "Hello!" }],
 });
 console.log(response.choices[0].message.content);</div>
-                    <button class="btn-ghost" style="margin-top:8px" onclick="copyCurl('node')">📋 Copy code</button>
-                </div>
-
-                <div id="tab-ollama" class="tab-content">
-                    <div class="code-block">curl <span class="url-ollama-base">http://localhost:11434</span>/api/chat \\
+                            <vscode-button appearance="secondary" style="margin-top:8px" onclick="copyCurl('node')">📋 Copy code</vscode-button>
+                        </div>
+                    </vscode-panel-view>
+                    <vscode-panel-view id="view-ollama">
+                        <div style="width: 100%">
+                            <div class="code-block" id="ollama-example">curl <span class="url-ollama-base">http://localhost:11434</span>/api/chat \\
   -d '{
-    "model": "gemini-2.5-flash",
+    "model": "gemini-3.5-flash",
     "messages": [{"role": "user", "content": "Hello!"}],
     "stream": false
   }'
 
 # List models (Ollama format)
 curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
-                    <button class="btn-ghost" style="margin-top:8px" onclick="copyCurl('ollama')">📋 Copy command</button>
-                </div>
+                            <vscode-button appearance="secondary" style="margin-top:8px" onclick="copyCurl('ollama')">📋 Copy command</vscode-button>
+                        </div>
+                    </vscode-panel-view>
+                </vscode-panels>
             </div>
         </div>
 
         <!-- Request Log Card -->
         <div class="card">
             <div class="card-header">
-                <span><span class="icon">📋</span> Request Log</span>
+                <span>📋 Request Log</span>
                 <div style="display:flex; gap:6px;">
-                    <button class="btn-ghost" onclick="sendMsg('openOutputChannel')">Open Full Log</button>
-                    <button class="btn-ghost" onclick="sendMsg('clearLogs')">Clear</button>
+                    <vscode-button appearance="secondary" onclick="sendMsg('openOutputChannel')">Open Full Log</vscode-button>
+                    <vscode-button appearance="secondary" onclick="sendMsg('clearLogs')">Clear</vscode-button>
                 </div>
             </div>
             <div class="card-body" style="padding:0;">
@@ -1082,8 +979,8 @@ curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
                     <div class="token-value">\${t.maskedToken}</div>
                     <div class="token-meta">\${t.label} · \${age} ago · used: \${t.usageCount}x</div>
                     <div class="token-actions">
-                        <button class="btn-secondary btn-sm" onclick="sendMsg('copyToken',{tokenId:'\${t.id}'})">📋</button>
-                        <button class="btn-danger btn-sm" onclick="sendMsg('revokeToken',{tokenId:'\${t.id}'})">✕</button>
+                        <vscode-button appearance="secondary" onclick="sendMsg('copyToken',{tokenId:'\${t.id}'})">📋</vscode-button>
+                        <vscode-button appearance="secondary" onclick="sendMsg('revokeToken',{tokenId:'\${t.id}'})">✕</vscode-button>
                     </div>
                 </div>\`;
             }).join('');
@@ -1123,8 +1020,8 @@ curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
 
             // Update default model dropdown
             const currentDefault = modelSelect.value || (currentState.config && currentState.config.defaultModel) || '';
-            modelSelect.innerHTML = '<option value="">(require explicit model)</option>' +
-                models.map(m => \`<option value="\${m.id}" \${m.id === currentDefault ? 'selected' : ''}>\${m.id}</option>\`).join('');
+            modelSelect.innerHTML = '<vscode-option value="">(require explicit model)</vscode-option>' +
+                models.map(m => \`<vscode-option value="\${m.id}" \${m.id === currentDefault ? 'selected' : ''}>\text-content: \${m.id}</vscode-option>\`).join('');
         }
 
         function renderConfig(config) {
@@ -1170,7 +1067,7 @@ curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
                 <span class="log-time">\${time}</span>
                 <span class="log-method">\${entry.method}</span>
                 <span class="log-path">\${entry.path}</span>
-                <span class="\${statusCls}">\${entry.statusCode}</span>
+                <span class="\text-cls: \${statusCls}">\${entry.statusCode}</span>
                 <span class="log-duration">\${entry.responseTimeMs}ms</span>
             </div>\`;
         }
@@ -1207,7 +1104,7 @@ curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
                 <div style="font-weight:600; margin-bottom:4px;">✅ New Token Generated</div>
                 <div class="token-full">\${data.token}</div>
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <button class="btn-primary btn-sm" onclick="sendMsg('copyToken',{tokenId:'\${data.id}'})">📋 Copy Token</button>
+                    <vscode-button onclick="sendMsg('copyToken',{tokenId:'\${data.id}'})">📋 Copy Token</vscode-button>
                     <span class="warning-text">⚠ Save this token now — you won't see the full value again.</span>
                 </div>
             </div>\`;
@@ -1253,20 +1150,12 @@ curl <span class="url-ollama-base">http://localhost:11434</span>/api/tags</div>
             };
         }
 
-        // ─── Tabs ───
-        function switchTab(event, tabId) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
-        }
-
         function copyCurl(type) {
             const blocks = {
-                curl: document.querySelector('#tab-curl .code-block'),
-                python: document.querySelector('#tab-python .code-block'),
-                node: document.querySelector('#tab-node .code-block'),
-                ollama: document.querySelector('#tab-ollama .code-block'),
+                curl: document.getElementById('curl-example'),
+                python: document.getElementById('python-example'),
+                node: document.getElementById('node-example'),
+                ollama: document.getElementById('ollama-example'),
             };
             sendMsg('copyCurl', { command: blocks[type]?.textContent || '' });
         }

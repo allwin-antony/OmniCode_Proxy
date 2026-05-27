@@ -5,7 +5,16 @@ All notable changes to the **OmniCode Proxy** extension will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0]
+
+### Added
+- **Native VS Code Webview UI Toolkit**: Completely refactored the Control Panel dashboard using Microsoft's native web components (`<vscode-button>`, `<vscode-dropdown>`, `<vscode-checkbox>`, `<vscode-panels>`, etc.) for high performance, native look-and-feel, and automated theme adaptations.
+- **Offline Asset Bundling**: Co-located the minified toolkit assets directly inside `/resources/` to bypass strict Content Security Policies (CSP) and guarantee complete offline functionality inside air-gapped corporate environments.
+- **API Endpoints Reference Card**: Added an interactive, native table in the Control Panel detailing all supported OpenAI and Ollama-compatible REST routes, API formats, and method types.
+- **Rebranded Omni Bridge**: Successfully renamed all user-facing settings, menus, statuses, and terminal logs to **Omni Bridge** for consistent developer branding.
+
 ## [1.0.0]
+
 
 ### Added
 - **Dual-Pipeline Architecture**: Seamlessly supports both standard `vscode.lm` APIs for vanilla VS Code and a direct Connect RPC bypass for Google Antigravity IDE.
