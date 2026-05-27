@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as https from 'https';
+import { LanguageServerHarvester, HarvesterDetails } from './harvester.js';
 
 /**
  * ModelMapper — Discovers, caches, and maps internal IDE language models
@@ -17,6 +19,7 @@ export interface OpenAIModel {
         family: string;
         version: string;
         maxInputTokens: number;
+        enumName?: string;
     };
 }
 
@@ -33,6 +36,10 @@ export class ModelMapper {
     private disposables: vscode.Disposable[] = [];
 
     private readonly diagnosticsChannel = vscode.window.createOutputChannel('LM Bridge Diagnostics');
+
+    // Harvester states
+    private harvestedDetails: HarvesterDetails | null = null;
+    private isAntigravityConnectMode = false;
 
     constructor() {
         // Listen for model changes and refresh cache
@@ -51,6 +58,20 @@ export class ModelMapper {
     }
 
     /**
+     * Get active harvested server details if running in Antigravity mode.
+     */
+    public getHarvesterDetails(): HarvesterDetails | null {
+        return this.harvestedDetails;
+    }
+
+    /**
+     * Check if the bridge is currently using the direct Antigravity Connect RPC pipeline.
+     */
+    public isConnectMode(): boolean {
+        return this.isAntigravityConnectMode;
+    }
+
+    /**
      * Initialize the model cache. Call during activation.
      */
     async initialize(): Promise<void> {
@@ -65,6 +86,12 @@ export class ModelMapper {
                 await this.refresh();
             }, delay);
         }
+
+        // Keep models list refreshed every 15s in the background to capture server restarts or late startups
+        const backgroundInterval = setInterval(async () => {
+            await this.refresh();
+        }, 15000);
+        this.disposables.push(new vscode.Disposable(() => clearInterval(backgroundInterval)));
     }
 
 
@@ -80,7 +107,7 @@ export class ModelMapper {
                 return;
             }
 
-            // Try with no arguments first
+            // Try standard vscode.lm selectChatModels first
             this.logDiag('[Info] Calling vscode.lm.selectChatModels() with undefined selector...');
             let chatModels: vscode.LanguageModelChat[] = [];
             try {
@@ -103,27 +130,72 @@ export class ModelMapper {
 
             this.models.clear();
 
-            if (chatModels.length === 0) {
-                this.logDiag('[Warning] 0 language models were discovered. Check if an AI provider extension is installed and signed in.');
-            }
+            if (chatModels.length > 0) {
+                this.isAntigravityConnectMode = false;
+                this.harvestedDetails = null;
 
-            for (const cm of chatModels) {
-                const modelId = this.buildModelId(cm);
-                this.logDiag(`[Discovered] Model ID: "${modelId}" | Vendor: "${cm.vendor}" | Family: "${cm.family}" | Version: "${cm.version}" | MaxInputTokens: ${cm.maxInputTokens}`);
-                
-                const openAIModel: OpenAIModel = {
-                    id: modelId,
-                    object: 'model',
-                    created: Math.floor(Date.now() / 1000),
-                    owned_by: cm.vendor || 'unknown',
-                    _meta: {
-                        family: cm.family,
-                        version: cm.version,
-                        maxInputTokens: cm.maxInputTokens,
-                    },
-                };
+                for (const cm of chatModels) {
+                    const modelId = this.buildModelId(cm);
+                    this.logDiag(`[Discovered] Model ID: "${modelId}" | Vendor: "${cm.vendor}" | Family: "${cm.family}" | Version: "${cm.version}" | MaxInputTokens: ${cm.maxInputTokens}`);
+                    
+                    const openAIModel: OpenAIModel = {
+                        id: modelId,
+                        object: 'model',
+                        created: Math.floor(Date.now() / 1000),
+                        owned_by: cm.vendor || 'unknown',
+                        _meta: {
+                            family: cm.family,
+                            version: cm.version,
+                            maxInputTokens: cm.maxInputTokens,
+                        },
+                    };
 
-                this.models.set(modelId, { chatModel: cm, openAIModel });
+                    this.models.set(modelId, { chatModel: cm, openAIModel });
+                }
+            } else {
+                // Connect RPC pipeline (Antigravity Mode)
+                this.logDiag('[Info] 0 models found via vscode.lm. Initiating Antigravity Connect RPC harvest sequence...');
+                try {
+                    const details = await LanguageServerHarvester.getDetails(true);
+                    this.harvestedDetails = details;
+                    this.logDiag(`[Harvester] Discovered running LS PID: ${details.pid} | Token: ${details.csrfToken.substring(0, 8)}... | Dynamic Connect Port: ${details.connectPort}`);
+
+                    // Fetch models list from Connect RPC endpoint GetCascadeModelConfigs
+                    const configs = await this.queryConnectModelConfigs(details);
+                    if (configs && configs.length > 0) {
+                        this.isAntigravityConnectMode = true;
+                        for (const config of configs) {
+                            const family = config.family || 'gemini';
+                            const modelId = config.modelName || family;
+                            
+                            // Check supportsThinking or recommended for token sizes
+                            const maxTokens = config.maxTokens || 32768;
+
+                             const openAIModel: OpenAIModel = {
+                                id: modelId,
+                                object: 'model',
+                                created: Math.floor(Date.now() / 1000),
+                                owned_by: config.modelProvider || 'google',
+                                _meta: {
+                                    family: family,
+                                    version: config.displayName || '1.0',
+                                    maxInputTokens: maxTokens,
+                                    enumName: config.model || modelId
+                                },
+                             };
+
+                            // Reference is dummy as we bypass vscode.lm during chat inference
+                            this.models.set(modelId, { chatModel: {} as any, openAIModel });
+                            this.logDiag(`[Discovered Connect Model] "${modelId}" (${config.displayName})`);
+                        }
+                    } else {
+                        this.logDiag('[Warning] Direct Connect RPC returned empty model configs. Falling back to sandbox.');
+                    }
+                } catch (harvestErr: any) {
+                    this.logDiag(`[Harvester Error] Resilient harvest failed: ${harvestErr.message}`);
+                    this.isAntigravityConnectMode = false;
+                    this.harvestedDetails = null;
+                }
             }
 
             this._onDidChangeModels.fire(this.listModels());
@@ -131,6 +203,106 @@ export class ModelMapper {
             this.logDiag(`[Critical Error] Failed to refresh models: ${err?.stack || err?.message || err}`);
             console.error('[LM Bridge] Failed to refresh models:', err);
         }
+    }
+
+    /**
+     * Helper to query available model configurations from the Connect server endpoint.
+     */
+    private queryConnectModelConfigs(details: HarvesterDetails): Promise<any[]> {
+        return new Promise(async (resolve) => {
+            const configs: any[] = [];
+
+            // Helper to make a Connect POST request
+            const makeRequest = (path: string): Promise<any> => {
+                return new Promise((resResolve) => {
+                    const options = {
+                        hostname: '127.0.0.1',
+                        port: details.connectPort,
+                        path: path,
+                        method: 'POST',
+                        rejectUnauthorized: false,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-codeium-csrf-token': details.csrfToken,
+                            'connect-protocol-version': '1'
+                        }
+                    };
+
+                    const req = https.request(options, (res) => {
+                        let body = '';
+                        res.on('data', (chunk) => body += chunk);
+                        res.on('end', () => {
+                            if (res.statusCode === 200) {
+                                try {
+                                    resResolve(JSON.parse(body));
+                                } catch (e) {
+                                    resResolve(null);
+                                }
+                            } else {
+                                resResolve(null);
+                            }
+                        });
+                    });
+
+                    req.on('error', () => {
+                        resResolve(null);
+                    });
+
+                    req.write(JSON.stringify({}));
+                    req.end();
+                });
+            };
+
+            // Query both endpoints in parallel for maximum resilience
+            const [cascadeRes, availableRes] = await Promise.all([
+                makeRequest('/exa.language_server_pb.LanguageServerService/GetCascadeModelConfigs'),
+                makeRequest('/exa.language_server_pb.LanguageServerService/GetAvailableModels')
+            ]);
+
+            // 1. Process GetCascadeModelConfigs response
+            if (cascadeRes) {
+                if (Array.isArray(cascadeRes.clientModelConfigs)) {
+                    configs.push(...cascadeRes.clientModelConfigs);
+                }
+                if (cascadeRes.defaultOverrideModelConfig) {
+                    configs.push(cascadeRes.defaultOverrideModelConfig);
+                }
+            }
+
+            // 2. Process GetAvailableModels response
+            if (availableRes) {
+                // GetAvailableModels returns: { response: { models: { "modelId": { ... } } } }
+                const modelsMap = (availableRes.response && availableRes.response.models) || availableRes.clientModelConfigs;
+                if (modelsMap && typeof modelsMap === 'object') {
+                    if (Array.isArray(modelsMap)) {
+                        configs.push(...modelsMap);
+                    } else {
+                        // Map/Object format
+                        for (const [modelName, cfg] of Object.entries(modelsMap)) {
+                            if (cfg && typeof cfg === 'object') {
+                                configs.push({
+                                    modelName: modelName,
+                                    ...(cfg as any)
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Filter unique configs by modelName, normalizing casing
+            const seen = new Set<string>();
+            const uniqueConfigs = configs.filter(c => {
+                if (!c.modelName) return false;
+                const key = c.modelName.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            this.logDiag(`[Success] Direct Connect RPC model discovery harvested ${uniqueConfigs.length} unique model configs.`);
+            resolve(uniqueConfigs);
+        });
     }
 
 

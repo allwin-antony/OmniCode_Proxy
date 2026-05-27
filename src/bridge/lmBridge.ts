@@ -1,11 +1,7 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
+import * as https from 'https';
 import { ModelMapper, InternalModelRef } from './modelMapper.js';
-
-/**
- * LMBridge — Core adapter that translates OpenAI Chat Completions API requests
- * into vscode.lm Language Model API calls and streams responses back.
- */
 
 // ─── OpenAI-compatible request/response types ───
 
@@ -86,6 +82,10 @@ export class LMBridge {
             return this.handleMockChatCompletion(request, modelRef.openAIModel.id);
         }
 
+        // Connect RPC Pipeline (Antigravity Mode)
+        if (this.modelMapper.isConnectMode()) {
+            return this.handleConnectChatCompletion(request, modelRef);
+        }
 
         const messages = this.convertMessages(request.messages);
         const options = this.buildOptions(request);
@@ -94,7 +94,6 @@ export class LMBridge {
 
         try {
             const cts = new vscode.CancellationTokenSource();
-            // Set timeout
             const timeout = vscode.workspace.getConfiguration('lmBridge').get<number>('requestTimeout', 120000);
             const timer = setTimeout(() => cts.cancel(), timeout);
 
@@ -126,7 +125,7 @@ export class LMBridge {
                     finish_reason: 'stop',
                 }],
                 usage: {
-                    prompt_tokens: -1,  // vscode.lm doesn't expose token counts
+                    prompt_tokens: -1,
                     completion_tokens: -1,
                     total_tokens: -1,
                 },
@@ -158,6 +157,10 @@ export class LMBridge {
             return this.handleMockChatCompletionStream(request, callbacks, modelRef.openAIModel.id);
         }
 
+        // Connect RPC Pipeline (Antigravity Mode)
+        if (this.modelMapper.isConnectMode()) {
+            return this.handleConnectChatCompletionStream(request, callbacks, modelRef);
+        }
 
         const messages = this.convertMessages(request.messages);
         const options = this.buildOptions(request);
@@ -227,6 +230,211 @@ export class LMBridge {
     }
 
     /**
+     * Handle non-streaming direct Connect RPC completions (Antigravity Pipeline).
+     */
+    private async handleConnectChatCompletion(
+        request: ChatCompletionRequest,
+        modelRef: InternalModelRef
+    ): Promise<ChatCompletionResponse> {
+        return new Promise(async (resolve, reject) => {
+            const details = this.modelMapper.getHarvesterDetails();
+            if (!details) {
+                return reject(new LMBridgeError(500, 'Harvester details are not available for Connect RPC.'));
+            }
+
+            const promptText = this.formatPromptHistory(request.messages);
+            const completionId = this.generateCompletionId();
+            const created = Math.floor(Date.now() / 1000);
+            const modelId = modelRef.openAIModel.id;
+            const enumName = modelRef.openAIModel._meta.enumName || modelId;
+
+            const path = '/exa.language_server_pb.LanguageServerService/GetModelResponse';
+            const bodyStr = JSON.stringify({
+                prompt: promptText,
+                model: enumName
+            });
+
+            const options = {
+                hostname: '127.0.0.1',
+                port: details.connectPort,
+                path: path,
+                method: 'POST',
+                rejectUnauthorized: false,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-codeium-csrf-token': details.csrfToken,
+                    'connect-protocol-version': '1',
+                    'Content-Length': Buffer.byteLength(bodyStr)
+                }
+            };
+
+            const req = https.request(options, (res) => {
+                let body = '';
+                res.on('data', (chunk) => body += chunk);
+                res.on('end', () => {
+                    if (res.statusCode !== 200) {
+                        return reject(new LMBridgeError(res.statusCode || 500, `Connect RPC returned status ${res.statusCode}: ${body}`));
+                    }
+
+                    try {
+                        const json = JSON.parse(body);
+                        const responseText = json.response || '';
+                        resolve({
+                            id: completionId,
+                            object: 'chat.completion',
+                            created,
+                            model: modelId,
+                            choices: [{
+                                index: 0,
+                                message: {
+                                    role: 'assistant',
+                                    content: responseText,
+                                },
+                                finish_reason: 'stop',
+                            }],
+                            usage: {
+                                prompt_tokens: -1,
+                                completion_tokens: -1,
+                                total_tokens: -1,
+                            },
+                        });
+                    } catch (e: any) {
+                        reject(new LMBridgeError(500, `Failed to parse Connect response: ${e.message}`));
+                    }
+                });
+            });
+
+            req.on('error', (err) => {
+                reject(new LMBridgeError(500, `Connect request failed: ${err.message}`));
+            });
+
+            req.write(bodyStr);
+            req.end();
+        });
+    }
+
+    /**
+     * Handle streaming direct Connect RPC completions (Antigravity Pipeline).
+     */
+    private async handleConnectChatCompletionStream(
+        request: ChatCompletionRequest,
+        callbacks: StreamCallbacks,
+        modelRef: InternalModelRef
+    ): Promise<void> {
+        const details = this.modelMapper.getHarvesterDetails();
+        if (!details) {
+            callbacks.onError(new LMBridgeError(500, 'Harvester details are not available for Connect RPC.'));
+            return;
+        }
+
+        const promptText = this.formatPromptHistory(request.messages);
+        const completionId = this.generateCompletionId();
+        const created = Math.floor(Date.now() / 1000);
+        const modelId = modelRef.openAIModel.id;
+        const enumName = modelRef.openAIModel._meta.enumName || modelId;
+
+        const path = '/exa.language_server_pb.LanguageServerService/GetModelResponse';
+        const bodyStr = JSON.stringify({
+            prompt: promptText,
+            model: enumName
+        });
+
+        const options = {
+            hostname: '127.0.0.1',
+            port: details.connectPort,
+            path: path,
+            method: 'POST',
+            rejectUnauthorized: false,
+            headers: {
+                'Content-Type': 'application/json',
+                'x-codeium-csrf-token': details.csrfToken,
+                'connect-protocol-version': '1',
+                'Content-Length': Buffer.byteLength(bodyStr)
+            }
+        };
+
+        // Send initial chunk with role
+        callbacks.onChunk({
+            id: completionId,
+            object: 'chat.completion.chunk',
+            created,
+            model: modelId,
+            choices: [{
+                index: 0,
+                delta: { role: 'assistant' },
+                finish_reason: null,
+            }],
+        });
+
+        const req = https.request(options, (res) => {
+            let body = '';
+            res.on('data', (chunk) => body += chunk);
+            res.on('end', async () => {
+                if (res.statusCode !== 200) {
+                    callbacks.onError(new LMBridgeError(res.statusCode || 500, `Connect RPC returned status ${res.statusCode}: ${body}`));
+                    return;
+                }
+
+                try {
+                    const json = JSON.parse(body);
+                    const responseText = json.response || '';
+
+                    // Butter-smooth streaming: chunk the response into words/spaces and stream them with brief timeouts
+                    const words = responseText.split(/(\s+)/);
+                    for (const word of words) {
+                        if (word.length === 0) continue;
+                        await new Promise(resolve => setTimeout(resolve, 8));
+                        callbacks.onChunk({
+                            id: completionId,
+                            object: 'chat.completion.chunk',
+                            created,
+                            model: modelId,
+                            choices: [{
+                                index: 0,
+                                delta: { content: word },
+                                finish_reason: null,
+                            }],
+                        });
+                    }
+
+                    // Send final chunk with finish_reason
+                    callbacks.onChunk({
+                        id: completionId,
+                        object: 'chat.completion.chunk',
+                        created,
+                        model: modelId,
+                        choices: [{
+                            index: 0,
+                            delta: {},
+                            finish_reason: 'stop',
+                        }],
+                    });
+                    callbacks.onDone();
+                } catch (e: any) {
+                    callbacks.onError(new LMBridgeError(500, `Failed to parse Connect streaming response: ${e.message}`));
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            callbacks.onError(new LMBridgeError(500, `Connect streaming request failed: ${err.message}`));
+        });
+
+        req.write(bodyStr);
+        req.end();
+    }
+
+    /**
+     * Map structured OpenAI messages history to a text-based chat format.
+     */
+    private formatPromptHistory(messages: ChatCompletionRequest['messages']): string {
+        return messages.map(msg => {
+            const roleName = msg.role === 'user' ? 'User' : msg.role === 'system' ? 'System' : 'Assistant';
+            return `${roleName}: ${msg.content}`;
+        }).join('\n\n') + '\n\nAssistant:';
+    }
+
+    /**
      * Convert OpenAI message format to vscode.lm message format.
      */
     private convertMessages(
@@ -235,7 +443,6 @@ export class LMBridge {
         return messages.map(msg => {
             switch (msg.role) {
                 case 'system':
-                    // vscode.lm treats system as User with a system-like prefix
                     return vscode.LanguageModelChatMessage.User(
                         `[System Instruction]\n${msg.content}`
                     );
@@ -255,8 +462,6 @@ export class LMBridge {
     private buildOptions(request: ChatCompletionRequest): vscode.LanguageModelChatRequestOptions {
         const options: vscode.LanguageModelChatRequestOptions = {};
 
-        // Note: vscode.lm has limited option support compared to OpenAI.
-        // We pass what we can and ignore the rest gracefully.
         if (request.model) {
             options.modelOptions = {};
             if (request.temperature !== undefined) {
@@ -287,7 +492,6 @@ export class LMBridge {
         }
         const message = err instanceof Error ? err.message : String(err);
 
-        // Map known vscode.lm errors to HTTP status codes
         if (message.includes('consent') || message.includes('Consent')) {
             return new LMBridgeError(403, `Model access requires user consent in the IDE. ${message}`);
         }
@@ -354,7 +558,6 @@ Your prompt was: "${prompt}"`;
         const created = Math.floor(Date.now() / 1000);
 
         try {
-            // Send initial chunk with role
             callbacks.onChunk({
                 id: completionId,
                 object: 'chat.completion.chunk',
@@ -367,11 +570,10 @@ Your prompt was: "${prompt}"`;
                 }],
             });
 
-            // Stream content chunks word-by-word with a tiny delay
             const words = reply.split(/(\s+)/);
             for (const word of words) {
                 if (word.length === 0) continue;
-                await new Promise(resolve => setTimeout(resolve, 8)); // 8ms delay
+                await new Promise(resolve => setTimeout(resolve, 8));
                 callbacks.onChunk({
                     id: completionId,
                     object: 'chat.completion.chunk',
@@ -385,7 +587,6 @@ Your prompt was: "${prompt}"`;
                 });
             }
 
-            // Final chunk
             callbacks.onChunk({
                 id: completionId,
                 object: 'chat.completion.chunk',
@@ -405,10 +606,6 @@ Your prompt was: "${prompt}"`;
     }
 }
 
-
-/**
- * Custom error class with HTTP status code mapping.
- */
 export class LMBridgeError extends Error {
     constructor(
         public readonly statusCode: number,
