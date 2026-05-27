@@ -30,10 +30,15 @@
 
 ---
 
-## 📋 Requirements
+## 📋 Requirements & OS Compatibility
 
 - **Visual Studio Code** v1.93.0 or higher, OR **Google Antigravity IDE** v1.107.0+.
 - An active AI provider extension installed and authenticated in your IDE (e.g., Google Gemini Code Assist, GitHub Copilot, etc.).
+
+### 💻 Operating System Support
+Because Omni Bridge dynamically detects your environment, its features depend slightly on your OS:
+- **Standard VS Code Pipeline (`vscode.lm`)**: 🟢 Fully supported on **Windows, macOS, and Linux**.
+- **Antigravity Direct Connect Bypass**: 🐧 Currently supported **only on Linux**. This is because the background process harvester relies on Linux-specific commands (`ps aux`, `ss`) and virtual file systems (`/proc`) to locate the internal language server and its secure sockets.
 
 ---
 
