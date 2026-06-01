@@ -61,7 +61,7 @@ This translates to complete, latency-free access to internal premium Gemini mode
 ## 🚀 Quick Start
 
 ### 1. Install & Launch
-- Install the **OmniCode Proxy** extension (`omnicode-proxy-1.0.0.vsix`) inside your IDE.
+- Install the **OmniCode Proxy** extension (`omnicode-proxy-1.1.1.vsix`) inside your IDE.
 - Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for **Omni Bridge: Open Control Panel**.
 
 ### 2. Configure & Start Server

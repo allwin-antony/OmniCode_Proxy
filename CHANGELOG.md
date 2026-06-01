@@ -5,7 +5,13 @@ All notable changes to the **OmniCode Proxy** extension will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1]
+
+### Added
+- **Multi-Platform Antigravity Warnings**: Implemented dynamic startup checks that detect if the extension is running in **Antigravity IDE** on **Windows or macOS**, immediately serving a native VS Code warning notification that the direct Connect RPC harvester bypass is supported strictly on Linux. Includes a helpful "Learn More" redirect to OS compatibility documentation.
+
 ## [1.1.0]
+
 
 ### Added
 - **Native VS Code Webview UI Toolkit**: Completely refactored the Control Panel dashboard using Microsoft's native web components (`<vscode-button>`, `<vscode-dropdown>`, `<vscode-checkbox>`, `<vscode-panels>`, etc.) for high performance, native look-and-feel, and automated theme adaptations.

@@ -605,7 +605,7 @@ export class ControlPanel {
                 <h1>Omni Bridge</h1>
                 <div style="font-size:11px; color:var(--muted)">Local AI Server — OpenAI & Ollama Compatible</div>
             </div>
-            <vscode-tag class="version">v1.0.0</vscode-tag>
+            <vscode-tag class="version">v1.1.1</vscode-tag>
         </div>
 
         <!-- Server Status Card -->
