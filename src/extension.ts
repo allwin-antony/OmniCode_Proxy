@@ -23,6 +23,19 @@ let controlPanel: ControlPanel;
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     console.log('[Omni Bridge] Activating extension...');
 
+    // Detect if running inside Antigravity IDE on Windows/macOS and notify the user
+    const isAntigravity = vscode.env.appName.toLowerCase().includes('antigravity');
+    if (isAntigravity && process.platform !== 'linux') {
+        vscode.window.showWarningMessage(
+            `Omni Bridge: The direct Antigravity Connect RPC bypass is only supported on Linux. It will not work on ${process.platform === 'darwin' ? 'macOS' : 'Windows'}. You can still use standard VS Code models (vscode.lm) if available.`,
+            'Learn More'
+        ).then(choice => {
+            if (choice === 'Learn More') {
+                vscode.env.openExternal(vscode.Uri.parse('https://github.com/allwin-antony/OmniCode_Proxy#%EF%B8%8F-requirements--os-compatibility'));
+            }
+        });
+    }
+
     // ─── 1. Initialize core services ───
     const tokenManager = new TokenManager(context.secrets);
     await tokenManager.initialize();
