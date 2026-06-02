@@ -192,11 +192,12 @@ We have successfully reverse-engineered, implemented, and verified a **direct Co
 ┌──────────────────────────────────────────────────────────┐
 │  OmniCode Proxy (HARVESTER PROCESS)                      │
 │                                                          │
-│  1. Scan Process Table (ps aux)                          │
-│     - Locate latest "language_server_linux_x64"          │
+│  1. Scan Process Table (ps aux / PowerShell)             │
+│     - Locate latest server binary                        │
+│       (linux_x64 / windows_x64.exe)                      │
 │     - Harvest dynamic token: --csrf_token                │
 │                                                          │
-│  2. Scan Socket Table (ss -ltp)                          │
+│  2. Scan Socket Table (ss -ltp / netstat -ano)           │
 │     - Query ports listening under LS process PID         │
 │     - Discovers active HTTPS Connect API Port            │
 │                                                          │
@@ -212,7 +213,7 @@ We have successfully reverse-engineered, implemented, and verified a **direct Co
 ### Protocol Details & Header Secrets
 
 1. **Authentication Header:**
-   The server expects the proprietary **`x-codeium-csrf-token`** header containing the dynamic session CSRF token harvested from the `language_server_linux_x64` process command line. 
+   The server expects the proprietary **`x-codeium-csrf-token`** header containing the dynamic session CSRF token harvested from the language server process command line (`language_server_linux_x64` or `language_server_windows_x64.exe`). 
    *(Note: Standard headers like `x-csrf-token` or standard authorization bearers are rejected with a `401 {"code":"unauthenticated","message":"missing CSRF token"}` Connect error.)*
 
 2. **Connect Protocol Header:**
@@ -237,37 +238,69 @@ import https from 'https';
 // 1. Harvest Latest LS Details
 async function harvestLanguageServer() {
     return new Promise((resolve, reject) => {
-        exec('ps aux | grep -i "language_server_linux_x64"', (error, stdout) => {
-            if (error) return reject(error);
-            const lines = stdout.split('\n');
-            const processes = [];
-            for (const line of lines) {
-                if (line.includes('grep')) continue;
-                const columns = line.trim().split(/\s+/);
-                if (columns.length <= 1) continue;
-                const pid = parseInt(columns[1], 10);
-                const csrfTokenMatch = line.match(/--csrf_token\s+([a-f0-9-]+)/i);
-                if (pid && csrfTokenMatch) {
-                    processes.push({ pid, csrfToken: csrfTokenMatch[1] });
+        if (process.platform === 'win32') {
+            const psCommand = `powershell -Command "Get-CimInstance Win32_Process -Filter 'Name like ''language_server%''' | Select-Object ProcessId, CommandLine, CreationDate | Sort-Object CreationDate -Descending | ConvertTo-Json"`;
+            exec(psCommand, (error, stdout) => {
+                if (error) return reject(error);
+                let parsed = JSON.parse(stdout.trim());
+                if (!Array.isArray(parsed)) parsed = [parsed];
+                const proc = parsed[0];
+                const csrfTokenMatch = (proc.CommandLine || '').match(/--csrf_token\s+([a-f0-9-]+)/i);
+                if (proc.ProcessId && csrfTokenMatch) {
+                    exec('netstat -ano', (err, nsStdout) => {
+                        if (err) return reject(err);
+                        const ports = [];
+                        for (const line of nsStdout.split('\n')) {
+                            const trimmed = line.trim();
+                            if (!trimmed) continue;
+                            const cols = trimmed.split(/\s+/);
+                            if (cols.length < 5) continue;
+                            if (cols[3].toUpperCase() === 'LISTENING' && cols[cols.length - 1] === String(proc.ProcessId)) {
+                                const lastColon = cols[1].lastIndexOf(':');
+                                if (lastColon !== -1) {
+                                    ports.push(parseInt(cols[1].substring(lastColon + 1), 10));
+                                }
+                            }
+                        }
+                        resolve({ pid: proc.ProcessId, csrfToken: csrfTokenMatch[1], ports });
+                    });
+                } else {
+                    reject(new Error('Process not found'));
                 }
-            }
-            if (processes.length === 0) return reject(new Error('Process not found'));
-            processes.sort((a, b) => b.pid - a.pid); // Target latest spawned
-            const latest = processes[0];
-            
-            // Get listening ports
-            exec('ss -ltp 2>/dev/null', (err, ssStdout) => {
-                if (err) return reject(err);
-                const ports = [];
-                for (const line of ssStdout.split('\n')) {
-                    if (line.includes(`pid=${latest.pid}`)) {
-                        const portMatch = line.match(/127\.0\.0\.1:(\d+)/i);
-                        if (portMatch) ports.push(parseInt(portMatch[1], 10));
+            });
+        } else {
+            exec('ps aux | grep -i "language_server_linux_x64"', (error, stdout) => {
+                if (error) return reject(error);
+                const lines = stdout.split('\n');
+                const processes = [];
+                for (const line of lines) {
+                    if (line.includes('grep')) continue;
+                    const columns = line.trim().split(/\s+/);
+                    if (columns.length <= 1) continue;
+                    const pid = parseInt(columns[1], 10);
+                    const csrfTokenMatch = line.match(/--csrf_token\s+([a-f0-9-]+)/i);
+                    if (pid && csrfTokenMatch) {
+                        processes.push({ pid, csrfToken: csrfTokenMatch[1] });
                     }
                 }
-                resolve({ pid: latest.pid, csrfToken: latest.csrfToken, ports });
+                if (processes.length === 0) return reject(new Error('Process not found'));
+                processes.sort((a, b) => b.pid - a.pid); // Target latest spawned
+                const latest = processes[0];
+                
+                // Get listening ports
+                exec('ss -ltp 2>/dev/null', (err, ssStdout) => {
+                    if (err) return reject(err);
+                    const ports = [];
+                    for (const line of ssStdout.split('\n')) {
+                        if (line.includes(`pid=${latest.pid}`)) {
+                            const portMatch = line.match(/127\.0\.0\.1:(\d+)/i);
+                            if (portMatch) ports.push(parseInt(portMatch[1], 10));
+                        }
+                    }
+                    resolve({ pid: latest.pid, csrfToken: latest.csrfToken, ports });
+                });
             });
-        });
+        }
     });
 }
 
@@ -325,8 +358,8 @@ This verification run successfully returned **`200 OK`** with detailed JSON resp
 
 2. **Can we discover the LS port and CSRF token?**
    - *Status:* **Resolved (Major Breakthrough)**.
-   - *Findings:* Yes! By doing standard process inspection (scanning active running processes on the host), we can find the exact arguments passed to the running language server.
-   - *Active Running Process Command Line:*
+   - *Findings:* Yes! By doing standard process inspection (scanning active running processes on the host), we can find the exact arguments passed to the running language server on both Linux and Windows.
+   - *Active Running Process Command Line (Linux):*
      ```bash
      /home/allwin.antony@acsiatech.com/.local/opt/antigravity-ide/resources/app/extensions/antigravity/bin/language_server_linux_x64 \
        --enable_lsp \
@@ -339,7 +372,11 @@ This verification run successfully returned **`200 OK`** with detailed JSON resp
        --app_data_dir antigravity-ide \
        --parent_pipe_path /tmp/server_710fd860165f7d45
      ```
-   - *Extraction Strategy:* A Node.js child process scan using standard OS utilities (e.g. `ps aux` or `/proc` scanning on Linux/macOS) can query command-line parameters to dynamically harvest:
+   - *Active Running Process Command Line (Windows):*
+     ```cmd
+     "c:\Users\santo\AppData\Local\Programs\Antigravity IDE\resources\app\extensions\antigravity\bin\language_server_windows_x64.exe" --enable_lsp --csrf_token 889e04af-a1a4-42b6-bf84-0d2535475b9a --extension_server_port 53550 --extension_server_csrf_token c154aa10-49f2-4b78-a26b-f19767ba5a81 --workspace_id file_c_3A_Users_santo_OneDrive_Documents_OmniCode_Proxy --cloud_code_endpoint https://daily-cloudcode-pa.googleapis.com --subclient_type ide --app_data_dir antigravity-ide --parent_pipe_path \\.\pipe\server_3ec75a37a75927e1
+     ```
+   - *Extraction Strategy:* A Node.js child process scan using standard OS utilities (e.g., `ps aux`/`ss` on Linux and `Get-CimInstance Win32_Process`/`netstat` on Windows) can query command-line parameters to dynamically harvest:
      1. `--csrf_token` (The LS-bound authentication token)
      2. `--extension_server_port` (The listening port)
      3. `--extension_server_csrf_token` (The extension-bound security token)
@@ -379,9 +416,9 @@ Now that the research has been fully translated into a robust production impleme
  │                                                        │
  │  ┌──────────────────────────────────────────────────┐  │
  │  │ 1. Harvester Cache (harvester.ts)                │  │
- │  │    - Scans ps aux for language_server_linux_x64  │  │
+ │  │    - Scans process table (ps aux / PowerShell)   │  │
  │  │    - Resolves latest active PID and CSRF Token   │  │
- │  │    - Port-scans ss -ltp sockets & validates SSL  │  │
+ │  │    - Port-scans ss / netstat sockets & SSL check │  │
  │  └──────────────────────────────────────────────────┘  │
  │                                                        │
  │  ┌──────────────────────────────────────────────────┐  │
@@ -408,6 +445,7 @@ Now that the research has been fully translated into a robust production impleme
 |------|--------|-------|
 | 2026-05-26 | Completed | Reverse-engineered LS process. Discovered that port and token are fully visible in the command-line arguments of the spawned `language_server_linux_x64` process, allowing dynamic harvesting! |
 | 2026-05-27 | Implemented & Verified | Fully implemented dynamic harvesting, Connect-JSON RPC handshake, and a custom 5-byte binary slice parser for real-time model stream piping. Verified 100% working and packaged into `omnicode-proxy-1.0.0.vsix` production build. |
+| 2026-06-02 | Windows Support Added | Expanded harvester to use PowerShell and `netstat -ano` to enable 100% functional bypass capability on Windows. |
 
 ---
 

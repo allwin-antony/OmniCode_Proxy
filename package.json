@@ -2,7 +2,7 @@
   "name": "omnicode-proxy",
   "displayName": "OmniCode Proxy — Local AI Server",
   "description": "Expose internal IDE language models (Gemini, Claude, etc.) as a local OpenAI-compatible HTTP API server. Like Ollama, but powered by the models already inside your IDE.",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "publisher": "allwin-antony",
   "icon": "assets/image.png",
   "repository": {

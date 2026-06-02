@@ -38,7 +38,7 @@
 ### 💻 Operating System Support
 Because Omni Bridge dynamically detects your environment, its features depend slightly on your OS:
 - **Standard VS Code Pipeline (`vscode.lm`)**: 🟢 Fully supported on **Windows, macOS, and Linux**.
-- **Antigravity Direct Connect Bypass**: 🐧 Currently supported **only on Linux**. This is because the background process harvester relies on Linux-specific commands (`ps aux`, `ss`) and virtual file systems (`/proc`) to locate the internal language server and its secure sockets.
+- **Antigravity Direct Connect Bypass**: 🟢 Fully supported on **Windows and Linux**. On Windows, it utilizes PowerShell and native `netstat` commands to dynamically harvest processes and active sockets. On Linux, it uses `ps aux` and `ss`.
 
 ---
 
@@ -48,9 +48,9 @@ Normally, third-party extensions cannot access the built-in Gemini models inside
 
 **OmniCode Proxy bypasses this limitation dynamically:**
 
-1. **Process & Socket Harvesting**: The extension automatically scans the running processes (`ps aux`) on your local machine to find the active Antigravity Language Server binary (`language_server_linux_x64`).
+1. **Process Harvesting**: The extension automatically scans running processes (using `ps aux` on Linux/macOS and PowerShell on Windows) to locate the active Antigravity Language Server binary (`language_server_linux_x64` or `language_server_windows_x64.exe`).
 2. **Secure Token Extraction**: It harvests the highly secure, dynamic session token (`--csrf_token`) passed to the process at startup.
-3. **Socket Discovery & SSL Probing**: It scans listening ports (`ss -ltp`) belonging to that process and dynamically probes them to find the correct local SSL port.
+3. **Socket Discovery & SSL Probing**: It scans listening ports (using `ss -ltp` on Linux and `netstat -ano` on Windows) belonging to that process and dynamically probes them to find the correct local SSL port.
 4. **Direct Bridge Handshake**: It establishes a direct TLS-bypassed HTTPS tunnel to the local server, communicating over the **Connect protocol** (a lightweight gRPC-compatible JSON format).
 5. **Streaming Slice Decoder**: When you prompt the model, the proxy converts your standard OpenAI request into a **5-byte enveloped Connect stream command**, reads the incoming binary chunks frame-by-frame, extracts the words, and streams them back to your client instantly.
 
@@ -61,7 +61,7 @@ This translates to complete, latency-free access to internal premium Gemini mode
 ## 🚀 Quick Start
 
 ### 1. Install & Launch
-- Install the **OmniCode Proxy** extension (`omnicode-proxy-1.1.1.vsix`) inside your IDE.
+- Install the **OmniCode Proxy** extension (`omnicode-proxy-1.2.0.vsix`) inside your IDE.
 - Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for **Omni Bridge: Open Control Panel**.
 
 ### 2. Configure & Start Server
@@ -168,17 +168,18 @@ OmniCode Proxy is built with a dual-layer abstraction framework:
 │  └──────────────────────────────────────────────────┘  │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │ 3. Pipeline 2: Antigravity Direct Connect RPC    │  │
-│  │    - Scans active process table (`ps aux`)        │  │
+│  │    - Scans process table (ps aux / PowerShell)   │  │
 │  │    - Extracts dynamic CSRF session keys          │  │
-│  │    - Dynamic socket probing via local `ss` lookups│  │
+│  │    - Dynamic socket probing (ss / netstat)       │  │
 │  │    - TLS cert bypassed local HTTPS Handshake      │  │
 │  │    - 5-byte Connect streaming binary slice parser │  │
-│  └────────────────────────┬─────────────────────────┘  │
+│  │    └────────────────────┬────────────────────────┘  │
+│  └──────────────────────────────────────────────────┘  │
 └───────────────────────────┼────────────────────────────┘
                             │
                             ▼ (Direct Connect Tunnel)
             Antigravity Local Language Server
-             (language_server_linux_x64)
+  (language_server_linux_x64 / language_server_windows_x64.exe)
 ```
 
 ---

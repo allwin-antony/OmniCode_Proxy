@@ -44,112 +44,222 @@ export class LanguageServerHarvester {
 
     private static performHarvest(): Promise<HarvesterDetails> {
         return new Promise((resolve, reject) => {
-            // 1. Scan the process table for active Language Server processes, sorted by start time descending
-            exec('ps aux --sort=-start_time | grep -i "language_server_linux_x64"', (error, stdout) => {
-                if (error) {
-                    return reject(new Error(`Failed to query process table: ${error.message}`));
-                }
-
-                const lines = stdout.split('\n');
-                const processes: Array<{ pid: number; csrfToken: string }> = [];
-
-                for (const line of lines) {
-                    // Ignore the grep process itself
-                    if (line.includes('grep')) {
-                        continue;
+            if (process.platform === 'win32') {
+                // Windows process harvesting flow using PowerShell
+                const psCommand = `powershell -Command "Get-CimInstance Win32_Process -Filter 'Name like ''language_server%''' | Select-Object ProcessId, CommandLine, CreationDate | Sort-Object CreationDate -Descending | ConvertTo-Json"`;
+                exec(psCommand, (error, stdout) => {
+                    if (error) {
+                        return reject(new Error(`Failed to query process table via PowerShell: ${error.message}`));
                     }
 
-                    // Extract the PID (column 2)
-                    const columns = line.trim().split(/\s+/);
-                    if (columns.length <= 1) {
-                        continue;
+                    const trimmed = stdout.trim();
+                    if (!trimmed) {
+                        return reject(new Error('No active Antigravity Language Server processes discovered on Windows.'));
                     }
 
-                    const pid = parseInt(columns[1], 10);
-                    // Match precisely the main csrf_token argument (ignoring extension_server_csrf_token)
-                    const csrfTokenMatch = line.match(/\s--csrf_token\s+([a-f0-9-]+)/i);
-
-                    if (pid && csrfTokenMatch) {
-                        processes.push({
-                            pid,
-                            csrfToken: csrfTokenMatch[1]
-                        });
-                    }
-                }
-
-                if (processes.length === 0) {
-                    return reject(new Error('No active Antigravity Language Server process discovered in the process table.'));
-                }
-
-                // Since we used --sort=-start_time, the latest spawned process is already first.
-                // However, we preserve a robust fallback sorting logic just in case:
-                processes.sort((a, b) => {
+                    let processes: Array<{ pid: number; csrfToken: string }> = [];
                     try {
-                        const timeA = fs.statSync(`/proc/${a.pid}`).mtimeMs;
-                        const timeB = fs.statSync(`/proc/${b.pid}`).mtimeMs;
-                        return timeB - timeA;
-                    } catch (e) {
-                        // Fallback to PID descending if proc is not accessible, but keep ps order if PIDs are equal
-                        return b.pid - a.pid;
-                    }
-                });
-
-                // We will try processes one by one until we find a working one
-                const tryProcess = async (index: number) => {
-                    if (index >= processes.length) {
-                        return reject(new Error('Could not find any listening HTTPS Connect ports on active processes.'));
-                    }
-
-                    const proc = processes[index];
-                    exec('ss -ltp 2>/dev/null', async (ssError, ssStdout) => {
-                        if (ssError) {
-                            return reject(new Error(`Failed to query active sockets via ss: ${ssError.message}`));
+                        let parsed = JSON.parse(trimmed);
+                        if (!Array.isArray(parsed)) {
+                            parsed = [parsed];
                         }
 
-                        const ssLines = ssStdout.split('\n');
-                        const listeningPorts: number[] = [];
+                        for (const proc of parsed) {
+                            if (!proc) continue;
+                            const pid = proc.ProcessId;
+                            const commandLine = proc.CommandLine || '';
 
-                        for (const line of ssLines) {
-                            if (line.includes(`pid=${proc.pid}`)) {
-                                const portMatch = line.match(/127\.0\.0\.1:(\d+)/i);
-                                if (portMatch) {
-                                    const port = parseInt(portMatch[1], 10);
-                                    if (!listeningPorts.includes(port)) {
-                                        listeningPorts.push(port);
+                            // Match precisely the main csrf_token argument (ignoring extension_server_csrf_token)
+                            const csrfTokenMatch = commandLine.match(/\s--csrf_token\s+([a-f0-9-]+)/i);
+                            if (pid && csrfTokenMatch) {
+                                processes.push({
+                                    pid,
+                                    csrfToken: csrfTokenMatch[1]
+                                });
+                            }
+                        }
+                    } catch (parseError: any) {
+                        return reject(new Error(`Failed to parse process list JSON: ${parseError.message}`));
+                    }
+
+                    if (processes.length === 0) {
+                        return reject(new Error('No active Antigravity Language Server process with a valid CSRF token discovered in the process table.'));
+                    }
+
+                    // Try processes one by one until we find a working one
+                    const tryProcess = async (index: number) => {
+                        if (index >= processes.length) {
+                            return reject(new Error('Could not find any listening HTTPS Connect ports on active processes.'));
+                        }
+
+                        const proc = processes[index];
+                        exec('netstat -ano', async (nsError, nsStdout) => {
+                            if (nsError) {
+                                return reject(new Error(`Failed to query active sockets via netstat: ${nsError.message}`));
+                            }
+
+                            const nsLines = nsStdout.split('\n');
+                            const listeningPorts: number[] = [];
+
+                            for (const line of nsLines) {
+                                const trimmedLine = line.trim();
+                                if (!trimmedLine) continue;
+
+                                const columns = trimmedLine.split(/\s+/);
+                                if (columns.length < 5) continue;
+
+                                const state = columns[3];
+                                const pidStr = columns[columns.length - 1];
+
+                                if (state.toUpperCase() === 'LISTENING' && pidStr === String(proc.pid)) {
+                                    const localAddr = columns[1];
+                                    const lastColon = localAddr.lastIndexOf(':');
+                                    if (lastColon !== -1) {
+                                        const portStr = localAddr.substring(lastColon + 1);
+                                        const port = parseInt(portStr, 10);
+                                        if (!isNaN(port) && !listeningPorts.includes(port)) {
+                                            listeningPorts.push(port);
+                                        }
                                     }
                                 }
                             }
+
+                            if (listeningPorts.length === 0) {
+                                return tryProcess(index + 1);
+                            }
+
+                            // Probe all ports of this process in parallel to find the one that responds to HTTPS Connect GetCascadeModelConfigs
+                            const probeResults = await Promise.all(
+                                listeningPorts.map(async (port) => {
+                                    const ok = await LanguageServerHarvester.probePort(port, proc.csrfToken);
+                                    return { port, ok };
+                                })
+                            );
+
+                            const workingPort = probeResults.find(r => r.ok);
+                            if (workingPort) {
+                                return resolve({
+                                    pid: proc.pid,
+                                    csrfToken: proc.csrfToken,
+                                    connectPort: workingPort.port
+                                });
+                            }
+
+                            tryProcess(index + 1);
+                        });
+                    };
+
+                    tryProcess(0);
+                });
+            } else {
+                // Linux/macOS process harvesting flow
+                // 1. Scan the process table for active Language Server processes, sorted by start time descending
+                exec('ps aux --sort=-start_time | grep -i "language_server_linux_x64"', (error, stdout) => {
+                    if (error) {
+                        return reject(new Error(`Failed to query process table: ${error.message}`));
+                    }
+
+                    const lines = stdout.split('\n');
+                    const processes: Array<{ pid: number; csrfToken: string }> = [];
+
+                    for (const line of lines) {
+                        // Ignore the grep process itself
+                        if (line.includes('grep')) {
+                            continue;
                         }
 
-                        if (listeningPorts.length === 0) {
-                            // Try next process
-                            return tryProcess(index + 1);
+                        // Extract the PID (column 2)
+                        const columns = line.trim().split(/\s+/);
+                        if (columns.length <= 1) {
+                            continue;
                         }
 
-                        // Probe all ports of this process in parallel to find the one that responds to HTTPS Connect GetCascadeModelConfigs
-                        const probeResults = await Promise.all(
-                            listeningPorts.map(async (port) => {
-                                const ok = await LanguageServerHarvester.probePort(port, proc.csrfToken);
-                                return { port, ok };
-                            })
-                        );
+                        const pid = parseInt(columns[1], 10);
+                        // Match precisely the main csrf_token argument (ignoring extension_server_csrf_token)
+                        const csrfTokenMatch = line.match(/\s--csrf_token\s+([a-f0-9-]+)/i);
 
-                        const workingPort = probeResults.find(r => r.ok);
-                        if (workingPort) {
-                            return resolve({
-                                pid: proc.pid,
-                                csrfToken: proc.csrfToken,
-                                connectPort: workingPort.port
+                        if (pid && csrfTokenMatch) {
+                            processes.push({
+                                pid,
+                                csrfToken: csrfTokenMatch[1]
                             });
                         }
+                    }
 
-                        // If no port works for this process, try the next process
-                        tryProcess(index + 1);
+                    if (processes.length === 0) {
+                        return reject(new Error('No active Antigravity Language Server process discovered in the process table.'));
+                    }
+
+                    // Since we used --sort=-start_time, the latest spawned process is already first.
+                    // However, we preserve a robust fallback sorting logic just in case:
+                    processes.sort((a, b) => {
+                        try {
+                            const timeA = fs.statSync(`/proc/${a.pid}`).mtimeMs;
+                            const timeB = fs.statSync(`/proc/${b.pid}`).mtimeMs;
+                            return timeB - timeA;
+                        } catch (e) {
+                            // Fallback to PID descending if proc is not accessible, but keep ps order if PIDs are equal
+                            return b.pid - a.pid;
+                        }
                     });
-                };
 
-                tryProcess(0);
-            });
+                    // We will try processes one by one until we find a working one
+                    const tryProcess = async (index: number) => {
+                        if (index >= processes.length) {
+                            return reject(new Error('Could not find any listening HTTPS Connect ports on active processes.'));
+                        }
+
+                        const proc = processes[index];
+                        exec('ss -ltp 2>/dev/null', async (ssError, ssStdout) => {
+                            if (ssError) {
+                                return reject(new Error(`Failed to query active sockets via ss: ${ssError.message}`));
+                            }
+
+                            const ssLines = ssStdout.split('\n');
+                            const listeningPorts: number[] = [];
+
+                            for (const line of ssLines) {
+                                if (line.includes(`pid=${proc.pid}`)) {
+                                    const portMatch = line.match(/127\.0\.0\.1:(\d+)/i);
+                                    if (portMatch) {
+                                        const port = parseInt(portMatch[1], 10);
+                                        if (!listeningPorts.includes(port)) {
+                                            listeningPorts.push(port);
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (listeningPorts.length === 0) {
+                                // Try next process
+                                return tryProcess(index + 1);
+                            }
+
+                            // Probe all ports of this process in parallel to find the one that responds to HTTPS Connect GetCascadeModelConfigs
+                            const probeResults = await Promise.all(
+                                listeningPorts.map(async (port) => {
+                                    const ok = await LanguageServerHarvester.probePort(port, proc.csrfToken);
+                                    return { port, ok };
+                                })
+                            );
+
+                            const workingPort = probeResults.find(r => r.ok);
+                            if (workingPort) {
+                                return resolve({
+                                    pid: proc.pid,
+                                    csrfToken: proc.csrfToken,
+                                    connectPort: workingPort.port
+                                });
+                            }
+
+                            // If no port works for this process, try the next process
+                            tryProcess(index + 1);
+                        });
+                    };
+
+                    tryProcess(0);
+                });
+            }
         });
     }
 

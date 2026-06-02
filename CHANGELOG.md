@@ -5,6 +5,12 @@ All notable changes to the **OmniCode Proxy** extension will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0]
+
+### Added
+- **Native Windows Support**: Ported the dynamic Antigravity Language Server harvester to Windows. Replaced Linux-only commands (`ps aux`, `ss`) and virtual file paths (`/proc`) with native PowerShell (`Get-CimInstance Win32_Process`) and `netstat -ano` queries to dynamically discover PIDs, retrieve session CSRF tokens, and probe listen sockets on Windows.
+- **Cross-Platform Compatibility**: Upgraded harvesting mechanisms to seamlessly switch behavior based on the detected operating system, preserving full compatibility for Linux.
+
 ## [1.1.1]
 
 ### Added
